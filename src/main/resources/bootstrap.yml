@@ -1,0 +1,12 @@
+spring:
+  main:
+    banner-mode: "off"
+  application:
+    name: discord-bot
+
+discord:
+  token: ${DISCORD_BOT_TOKEN}
+
+logging:
+  level:
+    org.springframework.core.env: DEBUG
