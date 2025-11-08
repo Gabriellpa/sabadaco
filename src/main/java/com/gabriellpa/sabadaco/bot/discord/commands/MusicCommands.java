@@ -49,8 +49,8 @@ public class MusicCommands {
             }
     )
     public void search(SlashCommandInteractionEvent event) {
-        log.info("Playing track: {}", event.getName());
-        var search = "ytsearch" + Objects.requireNonNull(event.getOption("search")).getAsString();
+        log.info("Playing searched track: {}", event.getName());
+        var search = "ytsearch:" + Objects.requireNonNull(event.getOption("yt")).getAsString();
         play(event, search);
     }
 
@@ -79,6 +79,7 @@ public class MusicCommands {
     }
 
     //TODO: Organizar código para reuso e melhorar estratégia de falha, possivelmente deixar no commandExecutor
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void play(SlashCommandInteractionEvent event, String track) {
         var textChannel = event.getChannel().asTextChannel();
         try {

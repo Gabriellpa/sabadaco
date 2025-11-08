@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class CommandRegistry {
@@ -41,23 +43,34 @@ public class CommandRegistry {
     }
 
     public void registerCommandsWithJDA(JDA jda) {
-        commandMap.keySet().forEach(key -> {
-            Method method = commandMap.get(key);
-            SlashCommand annotation = method.getAnnotation(SlashCommand.class);
-            CommandDataImpl commandData = (CommandDataImpl) Commands.slash(annotation.name(), annotation.description());
-            if (!annotation.subcommand().isEmpty()) {
-                SubcommandData sub = new SubcommandData(annotation.subcommand(), annotation.description());
-                for (SlashOption option : annotation.options()) {
-                    sub.addOptions(new OptionData(option.type(), option.name(), option.description(), option.required()));
-                }
-                commandData.addSubcommands(sub);
-            } else {
-                for (SlashOption option : annotation.options()) {
-                    commandData.addOptions(new OptionData(option.type(), option.name(), option.description(), option.required()));
+        Map<String, List<Method>> grouped = commandMap.values().stream()
+                .collect(Collectors.groupingBy(m -> m.getAnnotation(SlashCommand.class).name()));
+
+        for (Map.Entry<String, List<Method>> entry : grouped.entrySet()) {
+            String commandName = entry.getKey();
+            List<Method> methods = entry.getValue();
+
+            SlashCommand first = methods.get(0).getAnnotation(SlashCommand.class);
+            CommandDataImpl commandData = (CommandDataImpl) Commands.slash(commandName, first.description());
+
+            for (Method method : methods) {
+                SlashCommand annotation = method.getAnnotation(SlashCommand.class);
+
+                if (!annotation.subcommand().isEmpty()) {
+                    SubcommandData sub = new SubcommandData(annotation.subcommand(), annotation.description());
+                    for (SlashOption option : annotation.options()) {
+                        sub.addOptions(new OptionData(option.type(), option.name(), option.description(), option.required()));
+                    }
+                    commandData.addSubcommands(sub);
+                } else {
+                    for (SlashOption option : annotation.options()) {
+                        commandData.addOptions(new OptionData(option.type(), option.name(), option.description(), option.required()));
+                    }
                 }
             }
+
             jda.upsertCommand(commandData).queue();
-        });
+        }
     }
 
 }
