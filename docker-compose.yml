@@ -1,0 +1,14 @@
+# Sobe o bot + painel admin. Configure as variáveis em um arquivo .env (veja .env.example):
+#   docker compose up -d --build
+#   docker compose logs -f
+name: sabadaco
+
+services:
+  sabadaco:
+    build: .
+    image: sabadaco:latest
+    container_name: sabadaco
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${ADMIN_PORT:-8080}:8080"

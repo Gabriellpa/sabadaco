@@ -87,6 +87,10 @@ tasks.named("test") {
     jvmArgs nativeAccess
 }
 
+tasks.named("bootJar") {
+    archiveFileName = "sabadaco.jar"
+}
+
 tasks.named("bootRun") {
     jvmArgs nativeAccess
 }

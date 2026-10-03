@@ -13,6 +13,26 @@ export ADMIN_PASSWORD=...             # senha do painel (sem ela, uma senha temp
 ./gradlew bootRun
 ```
 
+### Com Docker
+
+```bash
+cp .env.example .env      # preencha DISCORD_BOT_TOKEN (e, se quiser, DISCORD_DEV_GUILD_ID e ADMIN_PASSWORD)
+docker compose up -d --build
+docker compose logs -f    # a senha do painel aparece aqui se ADMIN_PASSWORD estiver vazio
+```
+
+O painel fica em http://localhost:8080. As playlists estão em memória por enquanto e se perdem ao recriar o container.
+
+### O que é `DISCORD_DEV_GUILD_ID`
+
+É o ID de um servidor (guild) do Discord. Quando definido, o bot registra os comandos **só naquele servidor**, e as mudanças aparecem na hora. É o ideal para testar sem afetar os outros servidores. Vazio, os comandos são **globais** (todos os servidores onde o bot está), que é o uso em produção.
+
+Para pegar o ID: Discord → Configurações de usuário → Avançado → ative o **Modo desenvolvedor**, depois clique com o botão direito no ícone do servidor → **Copiar ID do servidor**.
+
+> Se o bot já tiver comandos globais registrados e você ligar o modo dev, o servidor de teste mostra os dois (globais + do servidor) até os globais serem removidos.
+
+### Sem Discord
+
 Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 
 ```bash
