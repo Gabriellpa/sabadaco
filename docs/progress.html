@@ -182,24 +182,24 @@ pre.mermaid, .diagram {
   </ul>
 </section>
 
-<section id="phase-7" class="card phase" data-status="em andamento">
-  <div class="phase-head"><h3>Fase 7 — Painel admin</h3><span class="badge">em andamento</span></div>
+<section id="phase-7" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 7 — Painel admin</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> <code>SecurityConfiguration</code> (login simples, CSRF ativo)</label></li>
-    <li><label><input type="checkbox" disabled> <code>/admin</code> com cards por servidor (polling HTMX 2s) e resumo de métricas</label></li>
-    <li><label><input type="checkbox" disabled> <code>/admin/guilds/{id}</code>: fila, volume, tocar playlist</label></li>
-    <li><label><input type="checkbox" disabled> <code>/admin/playlists</code>: CRUD de playlists e faixas</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>SecurityConfiguration</code> (Spring Security, ADMIN_USER/ADMIN_PASSWORD; basic auth para <code>/actuator/prometheus</code>; CSRF ativo)</label></li>
+    <li><label><input type="checkbox" checked disabled> Servidores: cards ao vivo (polling HTMX 2s), pausar/pular/parar; erros viram toast</label></li>
+    <li><label><input type="checkbox" checked disabled> Servidor: player, fila com subir/descer/remover/limpar, volume, loop, embaralhar, tocar música ou playlist escolhendo canal de voz</label></li>
+    <li><label><input type="checkbox" checked disabled> Playlists: filtro por pessoa/servidor, criar, renomear, apagar, adicionar, apelidar, remover, mover</label></li>
   </ul>
 </section>
 
-<section id="phase-8" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 8 — Testes, README e revisão final</h3><span class="badge">pendente</span></div>
+<section id="phase-8" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 8 — Testes, README e revisão final</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> Testes: <code>TrackScheduler</code>, <code>PlaylistService</code>/repositório, <code>InteractionRouter</code>, <code>CommandRegistrar</code>, <code>MusicMetrics</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>@WebMvcTest</code> nos controllers admin e <code>contextLoads</code> com <code>@MockitoBean JDA</code></label></li>
-    <li><label><input type="checkbox" disabled> README (como rodar e variáveis de ambiente)</label></li>
-    <li><label><input type="checkbox" disabled> Revisão final com <code>/code-review</code></label></li>
-    <li><label><input type="checkbox" disabled> Último update deste HTML</label></li>
+    <li><label><input type="checkbox" checked disabled> 35 testes verdes: <code>TrackScheduler</code> (prioridade, loop, remover/mover, bytes), <code>PlaylistService</code> (escopos, visibilidade, mover, apelido, dono), <code>InteractionRouter</code>, <code>CommandRegistrar</code> (incl. localização pt-BR)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>AdminPanelTest</code> renderizando Thymeleaf e teste de contexto completo</label></li>
+    <li><label><input type="checkbox" checked disabled> README reescrito (como rodar, variáveis, comandos, regra de prioridade, arquitetura mermaid, como adicionar comando, como trocar storage, métricas)</label></li>
+    <li><label><input type="checkbox" checked disabled> Revisão final: risco de deadlock (Lavaplayer chama <code>onTrackEnd</code> segurando seu lock) corrigido; avanço da fila agora é assíncrono com guarda contra pulo duplo</label></li>
+    <li><label><input type="checkbox" checked disabled> Último update deste HTML (100%)</label></li>
   </ul>
 </section>
 
@@ -286,6 +286,9 @@ flowchart LR
   <ul id="questions-list">
     <li><strong>(não bloqueante)</strong> Descrições dos comandos ficaram em português como padrão (só os NOMES têm tradução pt-BR). Clientes em inglês veem /play com descrição em PT. Quer descrições em inglês + tradução?</li>
     <li><strong>(não bloqueante)</strong> Respostas de /play, /skip, /stop são públicas no canal (social); erros e listas são efêmeros. Ok?</li>
+    <li><strong>(não bloqueante)</strong> Teste real no Discord pendente: precisa do seu token (DISCORD_BOT_TOKEN) + DISCORD_DEV_GUILD_ID. O JDAVE (DAVE) só é exercitado de verdade numa conexão de voz real.</li>
+    <li><strong>(não bloqueante)</strong> htmx ficou na 2.0.11 (a 4.0.0 acabou de sair e muda herança de atributos); migrar depois?</li>
+    <li><strong>(não bloqueante)</strong> Autocomplete do /play faz uma busca no YouTube a cada tecla (≥3 caracteres). Ok ou prefere só /search?</li>
   </ul>
 </div>
 
@@ -319,6 +322,10 @@ flowchart LR
     <li><time>2026-10-03</time> Fase 6 concluída: métricas sabadaco.audio.downloaded.bytes, audio.sent.bytes, track.bytes, track.listened, tracks.played/failed, players.active, queue.size, playlists.total, commands, components, searches em /actuator/prometheus.</li>
     <li><time>2026-10-03</time> Fase 7 iniciada (painel admin).</li>
     <li><time>2026-10-03</time> Commit: comandos plugáveis, UI Components V2, playlists e métricas.</li>
+    <li><time>2026-10-03</time> Fase 7 concluída: painel admin Thymeleaf + HTMX com login simples (Spring Security, ADMIN_USER/ADMIN_PASSWORD; basic auth para /actuator/prometheus). Telas: Servidores, Servidor, Playlists. Validado no navegador embutido via ./gradlew bootTestRun (modo offline com JDA simulado): login, dashboard, mover música entre playlists, toast de erro HTMX com CSRF, endpoint Prometheus com métricas sabadaco_*. Sem erros no console.</li>
+    <li><time>2026-10-03</time> Fase 8 concluída: 35 testes verdes; README reescrito. A revisão final encontrou e corrigiu um risco de deadlock: Lavaplayer chama onTrackEnd segurando o lock interno; o avanço da fila agora é assíncrono com guarda contra pulo duplo.</li>
+    <li><time>2026-10-03</time> Commit: painel admin, testes e README.</li>
+    <li><time>2026-10-03</time> Commit: fix deadlock Lavaplayer x scheduler; gauge renomeada para sabadaco.playlists.saved.</li>
   </ol>
 </div>
 
