@@ -78,6 +78,8 @@ O usuário é avisado nos dois sentidos:
 
 ## Arquitetura
 
+> Explicação detalhada de classes, fluxos, concorrência e decisões (por que `synchronized`, virtual threads, `CompletableFuture` etc.): **[docs/ARQUITETURA.md](docs/ARQUITETURA.md)**.
+
 ```mermaid
 flowchart LR
   subgraph discord[discord: adaptador JDA]
