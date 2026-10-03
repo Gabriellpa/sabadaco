@@ -627,3 +627,4 @@ Depois, adicione `nowplaying.name` e `nowplaying.description` em `commands_pt_BR
 - Servidor de cipher do YouTube público, sem garantia de uptime.
 - Download por música não é exato (ver [7](#7-métricas)).
 - Um único processo por token: duas instâncias com o mesmo token recebem os mesmos eventos.
+- **YouTube exige login para tocar** (out/2026, todos os clients anônimos falham com *"This video requires login"* / sem streams). Solução atual: OAuth no client TV (`YOUTUBE_OAUTH_ENABLED`) com uma conta descartável. O cipher remoto continua necessário para as assinaturas, mas sozinho não basta.
