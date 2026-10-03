@@ -58,6 +58,25 @@ public class DiscordDirectory {
                 .toList();
     }
 
+    /**
+     * @param listeners pessoas (sem contar bots) nos canais de voz onde o bot está conectado
+     */
+    public record DiscordStats(int guilds, int voiceConnections, int listeners, long gatewayPingMs) {
+    }
+
+    public DiscordStats stats() {
+        int connections = 0;
+        int listeners = 0;
+        for (var guild : jda.getGuilds()) {
+            var channel = guild.getAudioManager().getConnectedChannel();
+            if (channel != null) {
+                connections++;
+                listeners += (int) channel.getMembers().stream().filter(member -> !member.getUser().isBot()).count();
+            }
+        }
+        return new DiscordStats(jda.getGuilds().size(), connections, listeners, Math.max(0, jda.getGatewayPing()));
+    }
+
     public Map<Long, String> knownUsers() {
         return Map.copyOf(userNames);
     }

@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -34,13 +35,15 @@ public class InteractionRouter extends ListenerAdapter {
     private final Map<String, ComponentHandler> components = new HashMap<>();
     private final MeterRegistry meterRegistry;
     private final DiscordDirectory directory;
+    private final ApplicationEventPublisher events;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public InteractionRouter(List<SlashCommand> slashCommands, List<Subcommand> subcommands,
                              List<ComponentHandler> componentHandlers, MeterRegistry meterRegistry,
-                             DiscordDirectory directory) {
+                             DiscordDirectory directory, ApplicationEventPublisher events) {
         this.meterRegistry = meterRegistry;
         this.directory = directory;
+        this.events = events;
         slashCommands.forEach(command -> register(commands, command.definition().getName(), command));
         subcommands.forEach(sub -> register(commands, sub.parent() + " " + sub.definition().getName(), sub));
         componentHandlers.forEach(handler -> register(components, handler.prefix(), handler));
@@ -114,7 +117,9 @@ public class InteractionRouter extends ListenerAdapter {
             log.error("Erro em {} {}", tagName, tagValue, e);
             replyError(event, GENERIC_ERROR);
         } finally {
-            sample.stop(meterRegistry.timer(metric, tagName, tagValue, "outcome", outcome));
+            long nanos = sample.stop(meterRegistry.timer(metric, tagName, tagValue, "outcome", outcome));
+            events.publishEvent(new InteractionExecuted(event.getUser().getIdLong(), tagValue,
+                    "component".equals(tagName), outcome, nanos));
         }
     }
 

@@ -99,7 +99,7 @@ class InteractionRouterTest {
     };
 
     private final InteractionRouter router = new InteractionRouter(List.of(ping, failing), List.of(create), List.of(buttons),
-            meterRegistry, mock(DiscordDirectory.class));
+            meterRegistry, mock(DiscordDirectory.class), event -> { });
 
     @Test
     void dispatchesByFullCommandName() {
@@ -138,7 +138,7 @@ class InteractionRouterTest {
     @Test
     void duplicateHandlersFailFast() {
         assertThatThrownBy(() -> new InteractionRouter(List.of(ping, ping), List.of(), List.of(),
-                meterRegistry, mock(DiscordDirectory.class))).isInstanceOf(IllegalStateException.class);
+                meterRegistry, mock(DiscordDirectory.class), event -> { })).isInstanceOf(IllegalStateException.class);
     }
 
     private static SlashCommandInteractionEvent slash(String fullName) {
