@@ -111,7 +111,7 @@ class AdminPanelTest {
         mvc.perform(get("/admin"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Kasino no Sabadaço")))
-                .andExpect(content().string(containsString("2,0 KB transmitidos")));
+                .andExpect(content().string(containsString("vol 100% · 2,0 KB")));
     }
 
     @Test

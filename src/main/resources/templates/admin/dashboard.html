@@ -2,18 +2,30 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
 <head th:replace="~{admin/fragments :: head('Servidores')}"></head>
 <body>
-<nav th:replace="~{admin/fragments :: nav}"></nav>
-<main>
-    <div th:replace="~{admin/fragments :: flash}"></div>
-    <h1>Servidores</h1>
-    <section class="stats">
-        <div class="stat"><span th:text="${stats.downloaded()}">0 B</span><small>baixados das fontes</small></div>
-        <div class="stat"><span th:text="${stats.sent()}">0 B</span><small>enviados ao Discord</small></div>
-        <div class="stat"><span th:text="${stats.tracksPlayed()}">0</span><small>músicas tocadas</small></div>
-        <div class="stat"><span th:text="${stats.commands()}">0</span><small>comandos</small></div>
-        <div class="stat"><span th:text="${stats.searches()}">0</span><small>buscas</small></div>
-    </section>
-    <section th:replace="~{admin/fragments :: players}"></section>
-</main>
+<div class="app">
+    <aside th:replace="~{admin/fragments :: sidebar}"></aside>
+    <div class="main">
+        <header class="topbar">
+            <div>
+                <h1>Servidores</h1>
+                <p class="muted small">O que está tocando agora, com controles rápidos. Atualiza sozinho.</p>
+            </div>
+            <span class="live-dot">ao vivo</span>
+        </header>
+        <main class="content">
+            <div th:replace="~{admin/fragments :: flash}"></div>
+            <section class="kpis">
+                <div class="card kpi hoverable"><div class="label">⬇️ Baixado das fontes</div><div class="value" th:text="${stats.downloaded()}">0 B</div></div>
+                <div class="card kpi hoverable"><div class="label">📡 Enviado ao Discord</div><div class="value" th:text="${stats.sent()}">0 B</div></div>
+                <div class="card kpi hoverable"><div class="label">🎵 Músicas tocadas</div><div class="value" th:text="${stats.tracksPlayed()}">0</div></div>
+                <div class="card kpi hoverable"><div class="label">⌨️ Comandos</div><div class="value" th:text="${stats.commands()}">0</div></div>
+                <div class="card kpi hoverable"><div class="label">🔎 Buscas</div><div class="value" th:text="${stats.searches()}">0</div>
+                    <a class="hint" th:href="@{/admin/metrics}">ver métricas →</a></div>
+            </section>
+            <section th:replace="~{admin/fragments :: players}"></section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments :: listenBar}"></div>
 </body>
 </html>

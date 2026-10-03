@@ -3,35 +3,45 @@
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="|${title} · Sabadaço admin|">Sabadaço admin</title>
+    <title th:text="|${title} · Sabadaço|">Sabadaço</title>
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <script>
+        // Aplica o tema salvo antes de pintar (evita "piscar" o tema errado)
+        (function () { try { var t = localStorage.getItem('sabadaco-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" th:href="@{/css/admin.css}">
     <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
-    <script>
-        // Envia o token CSRF em toda requisição HTMX e some com o toast depois de alguns segundos
-        document.addEventListener('htmx:configRequest', (event) => {
-            const header = document.querySelector('meta[name=_csrf_header]').content;
-            event.detail.headers[header] = document.querySelector('meta[name=_csrf]').content;
-        });
-        document.addEventListener('htmx:afterSwap', (event) => {
-            if (event.detail.target.id === 'toast') {
-                setTimeout(() => event.detail.target.innerHTML = '', 4000);
-            }
-        });
-    </script>
+    <script th:src="@{/js/admin.js}" defer></script>
 </head>
 <body>
 
-<nav th:fragment="nav" class="nav">
-    <a class="brand" th:href="@{/admin}">🎶 Sabadaço</a>
-    <a th:href="@{/admin}">Servidores</a>
-    <a th:href="@{/admin/playlists}">Playlists</a>
-    <a th:href="@{/actuator/prometheus}" target="_blank">Métricas</a>
-    <form class="logout" th:action="@{/logout}" method="post">
-        <button class="link">Sair</button>
-    </form>
-</nav>
+<aside th:fragment="sidebar" class="sidebar">
+    <a class="brand" th:href="@{/admin}"><span class="brand-mark">🎶</span><span>Sabadaço</span></a>
+    <a class="nav-link" th:href="@{/admin}">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg><span>Servidores</span></a>
+    <a class="nav-link" th:href="@{/admin/metrics}">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Métricas</span></a>
+    <a class="nav-link" th:href="@{/admin/playlists}">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg><span>Playlists</span></a>
+    <a class="nav-link" th:href="@{/actuator/prometheus}" target="_blank">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Prometheus</span></a>
+    <div class="sidebar-footer">
+        <button type="button" class="link theme-toggle" data-theme-toggle title="Alternar tema">
+            <svg class="icon moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            <svg class="icon sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            <span>Tema</span>
+        </button>
+        <form th:action="@{/logout}" method="post">
+            <button class="link">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg><span>Sair</span>
+            </button>
+        </form>
+    </div>
+</aside>
 
 <div th:fragment="flash">
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -40,95 +50,134 @@
 
 <span th:fragment="toast" th:text="|❌ ${message}|">mensagem</span>
 
+<!-- Barra flutuante para ouvir o áudio de um servidor (fica fora das áreas atualizadas pelo HTMX) -->
+<div th:fragment="listenBar" id="listen-bar" class="listen-bar" aria-live="polite">
+    <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <div class="meta">
+        <strong data-listen-title>Ouvindo</strong>
+        <span class="muted small" data-listen-subtitle></span>
+    </div>
+    <svg class="icon" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
+    <input type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume local">
+    <button type="button" class="icon-btn" data-listen-stop title="Parar de ouvir">
+        <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></svg>
+    </button>
+    <audio preload="none"></audio>
+</div>
+
 <!-- Cards de todos os servidores (dashboard), atualizados a cada 2s -->
 <section id="players" th:fragment="players" class="grid"
          th:hx-get="@{/admin/players}" hx-trigger="every 2s" hx-swap="outerHTML">
-    <p th:if="${#lists.isEmpty(cards)}" class="muted">O bot não está em nenhum servidor (ou ainda está conectando).</p>
-    <article class="card" th:each="card : ${cards}" th:classappend="${card.playing()} ? 'playing'">
-        <header class="row">
-            <a th:href="@{/admin/guilds/{id}(id=${card.id()})}" th:text="${card.name()}">Servidor</a>
-            <span class="badge"
+    <div class="card empty" th:if="${#lists.isEmpty(cards)}">
+        <span class="big-emoji">📡</span>
+        <span>O bot não está em nenhum servidor (ou ainda está conectando).</span>
+    </div>
+    <article class="card hoverable player-card" th:each="card : ${cards}">
+        <header class="row spread">
+            <a th:href="@{/admin/guilds/{id}(id=${card.id()})}"><h2 th:text="${card.name()}">Servidor</h2></a>
+            <span class="badge" th:classappend="${card.playing() and !card.player().paused()} ? 'live'"
                   th:text="${card.playing()} ? (${card.player().paused()} ? 'pausado' : 'tocando') : 'parado'">parado</span>
         </header>
         <th:block th:if="${card.playing()}" th:with="p=${card.player()}, t=${card.player().current().track()}">
             <div class="now">
-                <img th:if="${t.artworkUrl()}" th:src="${t.artworkUrl()}" alt="">
+                <img class="cover" th:if="${t.artworkUrl()}" th:src="${t.artworkUrl()}" alt="">
                 <div>
-                    <a th:href="${t.uri()}" target="_blank" rel="noopener" th:text="${t.title()}">título</a>
-                    <div class="muted" th:text="${t.author()}">autor</div>
+                    <div class="title"><a th:href="${t.uri()}" target="_blank" rel="noopener" th:text="${t.title()}">título</a></div>
+                    <div class="muted small" th:text="${t.author()}">autor</div>
+                    <div class="muted small" th:text="|pedida por ${@views.user(p.current().requesterId())}|"></div>
                 </div>
             </div>
             <div class="progress"><span th:style="|width: ${@views.percent(p.positionMs(), t.durationMs())}%|"></span></div>
-            <div class="muted small"
-                 th:text="|${@views.duration(p.positionMs())} / ${@views.duration(t.durationMs())} · ${p.queueSize()} na fila · vol ${p.volume()}% · ${@views.bytes(p.currentTrackBytes())} transmitidos|">
+            <div class="row spread muted small">
+                <span th:text="|${@views.duration(p.positionMs())} / ${@views.duration(t.durationMs())}|"></span>
+                <span th:text="|${p.queueSize()} na fila · vol ${p.volume()}% · ${@views.bytes(p.currentTrackBytes())}|"></span>
             </div>
             <div class="actions">
                 <button th:hx-post="@{/admin/players/{id}/pause(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML"
-                        th:text="${p.paused()} ? '▶️ Continuar' : '⏸️ Pausar'">⏸️</button>
-                <button th:hx-post="@{/admin/players/{id}/skip(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML">⏭️ Pular</button>
-                <button class="danger" th:hx-post="@{/admin/players/{id}/stop(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML">⏹️ Parar</button>
+                        th:title="${p.paused()} ? 'Continuar' : 'Pausar'">
+                    <svg th:if="${p.paused()}" class="icon" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    <svg th:unless="${p.paused()}" class="icon" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>
+                </button>
+                <button th:hx-post="@{/admin/players/{id}/skip(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML" title="Pular">
+                    <svg class="icon" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg>
+                </button>
+                <button class="danger" th:hx-post="@{/admin/players/{id}/stop(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML" title="Parar">
+                    <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></svg>
+                </button>
+                <button type="button" class="primary"
+                        th:attr="data-listen=@{/admin/guilds/{id}/listen(id=${card.id()})},data-listen-title=${t.title()},data-listen-guild=${card.name()}">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg>
+                    Ouvir
+                </button>
             </div>
         </th:block>
-        <p th:unless="${card.playing()}" class="muted">Nada tocando.</p>
+        <div th:unless="${card.playing()}" class="empty"><span class="big-emoji">💤</span><span>Nada tocando.</span></div>
     </article>
 </section>
 
 <!-- Estado de um servidor (player + fila), atualizado a cada 2s -->
-<section id="state" th:fragment="guildState"
+<section id="state" th:fragment="guildState" class="stack"
          th:hx-get="@{/admin/guilds/{id}/state(id=${card.id()})}" hx-trigger="every 2s" hx-swap="outerHTML"
          th:with="p=${card.player()}">
-    <div class="card" th:if="${p == null or !p.playing()}">
-        <p class="muted">Nada tocando neste servidor.</p>
+    <div class="card empty" th:if="${p == null or !p.playing()}">
+        <span class="big-emoji">💤</span><span>Nada tocando neste servidor.</span>
     </div>
-    <div class="card playing" th:if="${p != null and p.playing()}" th:with="t=${p.current().track()}">
+    <div class="card player-card" th:if="${p != null and p.playing()}" th:with="t=${p.current().track()}">
         <div class="now big">
-            <img th:if="${t.artworkUrl()}" th:src="${t.artworkUrl()}" alt="">
+            <img class="cover" th:if="${t.artworkUrl()}" th:src="${t.artworkUrl()}" alt="">
             <div>
-                <a th:href="${t.uri()}" target="_blank" rel="noopener" th:text="${t.title()}">título</a>
+                <span class="badge" th:classappend="${!p.paused()} ? 'live'" th:text="${p.paused()} ? 'pausado' : 'tocando agora'">tocando</span>
+                <div class="title section-gap"><a th:href="${t.uri()}" target="_blank" rel="noopener" th:text="${t.title()}">título</a></div>
                 <div class="muted" th:text="${t.author()}">autor</div>
                 <div class="muted small"
                      th:text="|Pedida por ${@views.user(p.current().requesterId())}${p.current().fromPlaylist() ? ' · playlist ' + p.current().playlistName() : ''}|"></div>
             </div>
         </div>
         <div class="progress"><span th:style="|width: ${@views.percent(p.positionMs(), t.durationMs())}%|"></span></div>
-        <div class="muted small"
-             th:text="|${@views.duration(p.positionMs())} / ${@views.duration(t.durationMs())} · vol ${p.volume()}% · ${@views.loop(p.loopMode())} · ${@views.bytes(p.currentTrackBytes())} transmitidos|"></div>
+        <div class="row spread muted small">
+            <span th:text="|${@views.duration(p.positionMs())} / ${@views.duration(t.durationMs())}|"></span>
+            <span th:text="|vol ${p.volume()}% · ${@views.loop(p.loopMode())} · ${@views.bytes(p.currentTrackBytes())} transmitidos|"></span>
+        </div>
         <div class="actions">
             <button th:hx-post="@{/admin/guilds/{id}/control/pause(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML"
-                    th:text="${p.paused()} ? '▶️ Continuar' : '⏸️ Pausar'">⏸️</button>
-            <button th:hx-post="@{/admin/guilds/{id}/control/skip(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏭️ Pular</button>
+                    th:text="${p.paused()} ? '▶ Continuar' : '⏸ Pausar'">⏸</button>
+            <button th:hx-post="@{/admin/guilds/{id}/control/skip(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏭ Pular</button>
             <button th:hx-post="@{/admin/guilds/{id}/control/shuffle(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">🔀 Embaralhar</button>
             <button th:hx-post="@{/admin/guilds/{id}/control/loop(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">🔁 Loop</button>
-            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() - 10})}" hx-target="#state" hx-swap="outerHTML">🔉 -10</button>
+            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() - 10})}" hx-target="#state" hx-swap="outerHTML">🔉 −10</button>
             <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() + 10})}" hx-target="#state" hx-swap="outerHTML">🔊 +10</button>
-            <button class="danger" th:hx-post="@{/admin/guilds/{id}/control/stop(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏹️ Parar</button>
+            <button class="danger" th:hx-post="@{/admin/guilds/{id}/control/stop(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏹ Parar</button>
+            <button type="button" class="primary"
+                    th:attr="data-listen=@{/admin/guilds/{id}/listen(id=${card.id()})},data-listen-title=${t.title()},data-listen-guild=${card.name()}">🎧 Ouvir</button>
         </div>
     </div>
 
     <div class="card" th:if="${p != null}">
-        <header class="row">
+        <div class="card-head">
             <h2 th:text="|Fila (${p.queueSize()})|">Fila</h2>
             <button class="danger" th:if="${p.queueSize() > 0}" th:hx-post="@{/admin/guilds/{id}/control/clear(id=${card.id()})}"
                     hx-target="#state" hx-swap="outerHTML" hx-confirm="Limpar a fila inteira?">Limpar fila</button>
-        </header>
+        </div>
         <p class="muted small">Músicas avulsas tocam antes das faixas de playlist.</p>
-        <table th:if="${p.queueSize() > 0}">
-            <thead><tr><th>#</th><th>Música</th><th>Pedida por</th><th>Origem</th><th></th></tr></thead>
-            <tbody>
-            <tr th:each="entry, it : ${p.upcoming()}">
-                <td th:text="${it.count}">1</td>
-                <td><a th:href="${entry.track().uri()}" target="_blank" rel="noopener" th:text="${entry.track().title()}">título</a>
-                    <span class="muted small" th:text="${@views.duration(entry.track().durationMs())}"></span></td>
-                <td th:text="${@views.user(entry.requesterId())}">user</td>
-                <td><span class="badge" th:text="${entry.fromPlaylist()} ? |📜 ${entry.playlistName()}| : '🎯 avulsa'">avulsa</span></td>
-                <td class="actions">
-                    <button title="Subir" th:disabled="${it.first}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index - 1})}" hx-target="#state" hx-swap="outerHTML">↑</button>
-                    <button title="Descer" th:disabled="${it.last}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index + 1})}" hx-target="#state" hx-swap="outerHTML">↓</button>
-                    <button title="Remover" class="danger" th:hx-post="@{/admin/guilds/{id}/queue/{i}/remove(id=${card.id()},i=${it.index})}" hx-target="#state" hx-swap="outerHTML">🗑️</button>
-                </td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="table-wrap" th:if="${p.queueSize() > 0}">
+            <table>
+                <thead><tr><th>#</th><th>Música</th><th>Pedida por</th><th>Origem</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="entry, it : ${p.upcoming()}">
+                    <td th:text="${it.count}">1</td>
+                    <td><a th:href="${entry.track().uri()}" target="_blank" rel="noopener" th:text="${entry.track().title()}">título</a>
+                        <span class="muted small" th:text="${@views.duration(entry.track().durationMs())}"></span></td>
+                    <td th:text="${@views.user(entry.requesterId())}">user</td>
+                    <td><span class="badge" th:text="${entry.fromPlaylist()} ? |📜 ${entry.playlistName()}| : '🎯 avulsa'">avulsa</span></td>
+                    <td class="actions">
+                        <button class="icon-btn" title="Subir" th:disabled="${it.first}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index - 1})}" hx-target="#state" hx-swap="outerHTML">↑</button>
+                        <button class="icon-btn" title="Descer" th:disabled="${it.last}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index + 1})}" hx-target="#state" hx-swap="outerHTML">↓</button>
+                        <button class="icon-btn danger" title="Remover" th:hx-post="@{/admin/guilds/{id}/queue/{i}/remove(id=${card.id()},i=${it.index})}" hx-target="#state" hx-swap="outerHTML">🗑</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </section>
 

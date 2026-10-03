@@ -1,6 +1,5 @@
 package com.gabriellpa.sabadaco.admin.listen;
 
-import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.music.GuildPlayer;
 import com.gabriellpa.sabadaco.music.GuildPlayerRegistry;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,8 +34,12 @@ public class ListenController {
 
     @GetMapping("/admin/guilds/{guildId}/listen")
     public void listen(@PathVariable long guildId, HttpServletResponse response) throws IOException {
-        GuildPlayer player = players.find(guildId)
-                .orElseThrow(() -> new UserFacingException("Nada tocando neste servidor."));
+        GuildPlayer player = players.find(guildId).orElse(null);
+        if (player == null) {
+            // Requisição de <audio>: um 404 simples, não a página de erro/redirect do painel
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Nada tocando neste servidor.");
+            return;
+        }
         response.setContentType("audio/ogg");
         response.setHeader("Cache-Control", "no-store");
 

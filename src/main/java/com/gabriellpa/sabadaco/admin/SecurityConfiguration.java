@@ -33,7 +33,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/css/**", "/webjars/**").permitAll()
+                        .requestMatchers("/actuator/health", "/css/**", "/js/**", "/webjars/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form.defaultSuccessUrl("/admin", true))
                 .httpBasic(Customizer.withDefaults())
