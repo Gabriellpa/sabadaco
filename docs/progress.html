@@ -102,28 +102,28 @@ pre.mermaid, .diagram {
 
 <h2>Fases</h2>
 
-<section id="phase-0" class="card phase" data-status="em andamento">
-  <div class="phase-head"><h3>Fase 0 — Reporter de progresso</h3><span class="badge">em andamento</span></div>
+<section id="phase-0" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 0 — Reporter de progresso</h3><span class="badge">concluída</span></div>
   <ul class="check">
     <li><label><input type="checkbox" checked disabled> Criar <code>docs/progress.html</code></label></li>
-    <li><label><input type="checkbox" disabled> Publicar o HTML como Artifact privado</label></li>
+    <li><label><input type="checkbox" checked disabled> Publicar o HTML como Artifact privado</label></li>
   </ul>
 </section>
 
-<section id="phase-1" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 1 — Build e versões</h3><span class="badge">pendente</span></div>
+<section id="phase-1" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 1 — Build e versões</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> Spring Boot 4.1.1, JDK 25, Gradle wrapper atualizado</label></li>
-    <li><label><input type="checkbox" disabled> JDA 6.7.0, Lavaplayer 2.2.7, youtube-source 1.18.2</label></li>
-    <li><label><input type="checkbox" disabled> Remover Spring Cloud, <code>bootstrap.yml</code> e repositório Maven morto</label></li>
-    <li><label><input type="checkbox" disabled> JDAVE (DAVE) com natives win/linux e <code>--enable-native-access</code></label></li>
-    <li><label><input type="checkbox" disabled> Starters: Thymeleaf, Security, Actuator, Prometheus; configuration-processor em <code>annotationProcessor</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>./gradlew build</code> verde</label></li>
+    <li><label><input type="checkbox" checked disabled> Spring Boot 4.1.1, JDK 25, Gradle wrapper atualizado</label></li>
+    <li><label><input type="checkbox" checked disabled> JDA 6.7.0, Lavaplayer 2.2.7, youtube-source 1.18.2</label></li>
+    <li><label><input type="checkbox" checked disabled> Remover Spring Cloud, <code>bootstrap.yml</code> e repositório Maven morto</label></li>
+    <li><label><input type="checkbox" checked disabled> JDAVE (DAVE) com natives win/linux/mac e <code>--enable-native-access</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Starters: Thymeleaf, Security, Actuator, Prometheus; configuration-processor em <code>annotationProcessor</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Compila com JDK 25 (Gradle wrapper 9.8.0, freefair lombok 9.8.0, <code>application.yml</code> criado)</label></li>
   </ul>
 </section>
 
-<section id="phase-2" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 2 — Framework de interação</h3><span class="badge">pendente</span></div>
+<section id="phase-2" class="card phase" data-status="em andamento">
+  <div class="phase-head"><h3>Fase 2 — Framework de interação</h3><span class="badge">em andamento</span></div>
   <ul class="check">
     <li><label><input type="checkbox" disabled> Interfaces <code>SlashCommand</code>, <code>Subcommand</code>, <code>ComponentHandler</code></label></li>
     <li><label><input type="checkbox" disabled> <code>InteractionRouter</code> (despacho, métricas de tempo, tratamento de erro único)</label></li>
@@ -134,15 +134,17 @@ pre.mermaid, .diagram {
   </ul>
 </section>
 
-<section id="phase-3" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 3 — Núcleo de música</h3><span class="badge">pendente</span></div>
+<section id="phase-3" class="card phase" data-status="em andamento">
+  <div class="phase-head"><h3>Fase 3 — Núcleo de música</h3><span class="badge">em andamento</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> <code>GuildPlayer</code> e <code>GuildPlayerRegistry</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>TrackScheduler</code> com 2 filas (prioridade e playlist), loop e shuffle</label></li>
-    <li><label><input type="checkbox" disabled> <code>TrackLoader</code> e <code>SearchService</code> (<code>ytsearch:</code>)</label></li>
-    <li><label><input type="checkbox" disabled> <code>VoiceGateway</code> (porta) e <code>JdaVoiceGateway</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>PlayerEvent</code> (sealed) via Spring events</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>GuildPlayer</code> e <code>GuildPlayerRegistry</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>TrackScheduler</code> com 2 filas (prioridade e playlist), loop e shuffle</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>TrackLoader</code> e <code>SearchService</code> (<code>ytsearch:</code>)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>VoiceGateway</code> (porta)</label></li>
+    <li><label><input type="checkbox" disabled> <code>JdaVoiceGateway</code> (adaptador de voz JDA)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>PlayerEvent</code> (sealed) via Spring events</label></li>
     <li><label><input type="checkbox" disabled> Corrigir bugs 3 a 6 (opção de busca, deferReply, <code>asTextChannel</code>, normalização de URL)</label></li>
+      <li><label><input type="checkbox" checked disabled> <code>MusicService</code> (fachada sem JDA)</label></li>
   </ul>
 </section>
 
@@ -210,7 +212,7 @@ pre.mermaid, .diagram {
     <li><strong>Busca:</strong> a opção era declarada como <code>"yt"</code> e lida como <code>"search"</code>, então <code>getOption</code> retornava <code>null</code> sempre (NPE em toda chamada). Além disso o youtube-source só reconhece <code>ytsearch:</code> com dois-pontos.</li>
     <li><strong>Sem <code>reply/deferReply</code>:</strong> o Discord exige resposta à interação em até 3s, senão mostra "O aplicativo não respondeu".</li>
     <li><strong><code>asTextChannel()</code>:</strong> lança <code>IllegalStateException</code> no chat de canal de voz ou em threads; e o <code>sendMessage</code> no <code>catch</code> sem <code>.queue()</code> nunca envia.</li>
-    <li><strong>Remoção do <code>https://</code>:</strong> no Lavaplayer 2.2.7 os sources são consultados na ordem de registro e o YouTube (registrado primeiro) aceita <code>https://</code>. Ação: isolar numa função <code>normalizeIdentifier</code>, testar na execução real e remover só se não for necessária.</li>
+    <li><strong>Remoção do <code>https://</code>:</strong> no Lavaplayer 2.2.7 os sources são consultados na ordem de registro e o YouTube (registrado primeiro) aceita <code>https://</code>. Validado empiricamente: o <code>https://</code> funciona direto, então a remoção não é mais necessária e foi removida.</li>
     <li><strong>Detalhes menores:</strong> <code>CommandDataImpl</code> é classe interna do JDA; <code>GuildMusicManager</code> tem campo <code>public</code> e <code>@Getter</code> ao mesmo tempo; <code>volume</code> é ignorado; <code>playlistLoaded</code> só enfileira a 1ª faixa.</li>
   </ol>
   <p><strong>Decisão:</strong> interfaces + builders nativos do JDA no lugar de anotações + reflexão (erros em compilação, autocomplete/choices/localização de graça, testes simples, amigável a AOT).</p>
@@ -270,7 +272,8 @@ flowchart LR
     <tr><td>Spring Boot</td><td>4.0.0-M3</td><td><strong>4.1.1</strong> (último GA)</td></tr>
     <tr><td>JDK</td><td>25</td><td><strong>25</strong> (LTS mais recente)</td></tr>
     <tr><td>JDA</td><td>5.0.0-beta.14</td><td><strong>6.7.0</strong> (Components V2, Labels/selects em modal, DAVE)</td></tr>
-    <tr><td>JDAVE (DAVE)</td><td>—</td><td><strong>club.minnced:jdave-api 0.1.8</strong> + natives <code>win-x86-64</code> e <code>linux-x86-64</code></td></tr>
+    <tr><td>JDAVE (DAVE)</td><td>—</td><td><strong>club.minnced:jdave-api 0.1.8</strong> + natives <code>win-x86-64</code>, <code>linux-x86-64</code> e mac</td></tr>
+    <tr><td>Gradle wrapper</td><td>—</td><td><strong>9.8.0</strong> (plugin freefair lombok 9.8.0)</td></tr>
     <tr><td>Lavaplayer</td><td>2.2.4</td><td><strong>2.2.7</strong></td></tr>
     <tr><td>youtube-source v2</td><td>1.14.0</td><td><strong>1.18.2</strong></td></tr>
     <tr><td>Spring Cloud</td><td>2025.1.0-M2</td><td><strong>removido</strong></td></tr>
@@ -298,8 +301,16 @@ flowchart LR
 
 <h2>Log de alterações</h2>
 <div class="card">
-  <ol reversed id="log" style="margin:0">
+  <ol id="log" style="margin:0">
     <li><time>2026-10-03</time> Fase 0 iniciada: reporter criado</li>
+    <li><time>2026-10-03</time> Fase 0 concluída: reporter e HTML criados.</li>
+    <li><time>2026-10-03</time> Fase 1 concluída: build.gradle atualizado (Boot 4.1.1, JDA 6.7.0, JDAVE 0.1.8 com natives win/linux/mac, Lavaplayer 2.2.7, youtube-source 1.18.2, Gradle wrapper 9.8.0, freefair lombok 9.8.0); Spring Cloud e bootstrap.yml removidos; application.yml criado. Compila com JDK 25.</li>
+    <li><time>2026-10-03</time> Fase 2 iniciada (framework de interação).</li>
+    <li><time>2026-10-03</time> Fase 3 em andamento: TrackScheduler com 2 pistas (avulsas têm prioridade sobre playlist), GuildPlayer, GuildPlayerRegistry, TrackLoader (CompletableFuture), SearchService, MusicService (fachada sem JDA), PlayerEvent (sealed), VoiceGateway (porta). Falta o adaptador de voz JDA.</li>
+    <li><time>2026-10-03</time> Validação empírica: Lavaplayer 2.2.7 + youtube-source 1.18.2 reconhecem URLs https:// do YouTube direto (TRACK carregada). Sem o esquema (www.youtube.com/...) a string vira BUSCA. Conclusão: a remoção do https:// não é mais necessária e foi removida.</li>
+    <li><time>2026-10-03</time> Métrica de download validada: contador HTTP registrou ~1,19 MB em 4 carregamentos de teste.</li>
+    <li><time>2026-10-03</time> youtube-source v2 não preenche artworkUrl; thumbnail derivada de i.ytimg.com/vi/&lt;id&gt;/hqdefault.jpg.</li>
+    <li><time>2026-10-03</time> Commit: build + núcleo de música.</li>
   </ol>
 </div>
 
