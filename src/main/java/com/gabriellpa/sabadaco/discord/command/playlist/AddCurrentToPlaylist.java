@@ -22,7 +22,7 @@ class AddCurrentToPlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("add-current", "Salva a música que está tocando na playlist")
+        return new SubcommandData("add-current", "Saves the song that is playing to the playlist")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"), PlaylistOptions.alias(false));
     }
 

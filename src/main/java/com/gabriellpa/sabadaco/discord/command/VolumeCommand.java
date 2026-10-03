@@ -19,8 +19,8 @@ public class VolumeCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("volume", "Ajusta o volume")
-                .addOptions(new OptionData(OptionType.INTEGER, "level", "Volume de 0 a " + MusicService.MAX_VOLUME, true)
+        return Commands.slash("volume", "Adjusts the volume")
+                .addOptions(new OptionData(OptionType.INTEGER, "level", "Volume from 0 to " + MusicService.MAX_VOLUME, true)
                         .setRequiredRange(0, MusicService.MAX_VOLUME));
     }
 

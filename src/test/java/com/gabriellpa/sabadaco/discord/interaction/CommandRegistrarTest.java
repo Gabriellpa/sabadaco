@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
+import net.dv8tion.jda.api.utils.data.DataObject;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -71,6 +74,38 @@ class CommandRegistrarTest {
         var playlist = commands.get("playlist").toData().toString();
         assertThat(play).contains("\"" + DiscordLocale.PORTUGUESE_BRAZILIAN.getLocale() + "\":\"tocar\"");
         assertThat(playlist).contains("\"mover\"", "\"apelido\"", "\"criar\"");
+    }
+
+    /** Garante que comandos novos não fiquem sem tradução: toda descrição e toda escolha precisam de pt-BR. */
+    @Test
+    void everyDescriptionAndChoiceHasPortugueseTranslation() {
+        var missing = new ArrayList<String>();
+        registrar.commandData().forEach(command -> collectMissing(command.toData(), command.getName(), missing));
+
+        assertThat(missing).as("chaves faltando em i18n/commands_pt_BR.properties").isEmpty();
+    }
+
+    private static void collectMissing(DataObject data, String path, List<String> missing) {
+        var locale = DiscordLocale.PORTUGUESE_BRAZILIAN.getLocale();
+        if (data.hasKey("description") && !hasLocale(data, "description_localizations", locale)) {
+            missing.add(path + ".description");
+        }
+        if (data.hasKey("value") && !hasLocale(data, "name_localizations", locale)) {
+            missing.add(path + ".name");
+        }
+        for (var child : List.of("options", "choices")) {
+            if (data.hasKey(child)) {
+                var array = data.getArray(child);
+                for (int i = 0; i < array.length(); i++) {
+                    var item = array.getObject(i);
+                    collectMissing(item, path + "." + item.getString("name"), missing);
+                }
+            }
+        }
+    }
+
+    private static boolean hasLocale(DataObject data, String key, String locale) {
+        return data.hasKey(key) && !data.isNull(key) && data.getObject(key).hasKey(locale);
     }
 
     private Map<String, SlashCommandData> byName() {

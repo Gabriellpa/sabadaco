@@ -17,7 +17,7 @@ public class KassinoCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("kassino", "Depois de anos sabadico nosso amigo retorna");
+        return Commands.slash("kassino", "After years of sabadico our friend returns");
     }
 
     @Override

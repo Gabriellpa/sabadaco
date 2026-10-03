@@ -19,7 +19,7 @@ public class QueueCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("queue", "Mostra a fila do servidor");
+        return Commands.slash("queue", "Shows the server queue");
     }
 
     @Override

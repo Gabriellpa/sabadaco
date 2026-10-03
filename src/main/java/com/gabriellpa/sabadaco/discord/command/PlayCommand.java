@@ -15,8 +15,11 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * {@code /play}: URL ou texto. O autocomplete sugere primeiro as músicas com apelido do usuário
@@ -29,15 +32,18 @@ public class PlayCommand implements SlashCommand {
     static final String QUERY = "query";
     private static final int MAX_CHOICES = 25;
     private static final int MIN_SEARCH_LENGTH = 3;
+    private static final Duration DEBOUNCE = Duration.ofMillis(400);
 
     private final PlaybackReplies playback;
     private final SearchService searchService;
     private final PlaylistService playlistService;
+    /** Contador de teclas por usuário, para o debounce do autocomplete. */
+    private final Map<Long, Long> keystrokes = new ConcurrentHashMap<>();
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("play", "Toca uma música (URL ou nome)")
-                .addOptions(new OptionData(OptionType.STRING, QUERY, "URL ou nome da música", true, true));
+        return Commands.slash("play", "Plays a song (URL or name)")
+                .addOptions(new OptionData(OptionType.STRING, QUERY, "Song URL or name", true, true));
     }
 
     @Override
@@ -59,7 +65,7 @@ public class PlayCommand implements SlashCommand {
                 .limit(10)
                 .forEach(track -> choices.add(new Command.Choice(Format.truncate("⭐ " + track.displayName(), 100), track.uri())));
 
-        if (typed.length() >= MIN_SEARCH_LENGTH && !typed.startsWith("http")) {
+        if (typed.length() >= MIN_SEARCH_LENGTH && !typed.startsWith("http") && isLatestAfterPause(event.getUser().getIdLong())) {
             searchService.search(typed, MAX_CHOICES - choices.size()).stream()
                     .filter(track -> track.uri() != null && track.uri().length() <= 100)
                     .forEach(track -> choices.add(new Command.Choice(
@@ -67,5 +73,21 @@ public class PlayCommand implements SlashCommand {
                             track.uri())));
         }
         event.replyChoices(choices.stream().limit(MAX_CHOICES).toList()).queue();
+    }
+
+    /**
+     * Debounce: o Discord manda um autocomplete por tecla. Espera um pouco e só busca no YouTube se o
+     * usuário parou de digitar; pedidos antigos respondem só com os apelidos (o Discord descarta
+     * respostas de pedidos que já foram substituídos).
+     */
+    private boolean isLatestAfterPause(long userId) {
+        long keystroke = keystrokes.merge(userId, 1L, Long::sum);
+        try {
+            Thread.sleep(DEBOUNCE);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        return keystrokes.get(userId) == keystroke;
     }
 }

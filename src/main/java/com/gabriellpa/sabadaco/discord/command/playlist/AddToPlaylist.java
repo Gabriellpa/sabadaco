@@ -21,9 +21,9 @@ class AddToPlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("add", "Adiciona uma música (URL ou busca) à playlist")
+        return new SubcommandData("add", "Adds a song (URL or search) to the playlist")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"))
-                .addOption(OptionType.STRING, "query", "URL ou nome da música", true)
+                .addOption(OptionType.STRING, "query", "Song URL or name", true)
                 .addOptions(PlaylistOptions.alias(false));
     }
 

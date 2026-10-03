@@ -16,11 +16,11 @@ class AliasTrack extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("alias", "Dá (ou remove) um apelido para uma música da playlist")
+        return new SubcommandData("alias", "Sets (or removes) a nickname for a playlist song")
                 .addOptions(
                         PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"),
                         PlaylistOptions.track(),
-                        PlaylistOptions.alias(false).setDescription("Novo apelido (vazio remove)"));
+                        PlaylistOptions.alias(false).setDescription("New nickname (leave empty to remove)"));
     }
 
     @Override

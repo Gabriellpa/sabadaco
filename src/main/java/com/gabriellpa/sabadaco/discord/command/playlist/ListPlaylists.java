@@ -16,7 +16,7 @@ class ListPlaylists extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("list", "Lista suas playlists (deste servidor e globais)");
+        return new SubcommandData("list", "Lists your playlists (this server and global)");
     }
 
     @Override

@@ -42,12 +42,12 @@ public class PlaylistOptions {
     }
 
     public static OptionData track() {
-        return new OptionData(OptionType.INTEGER, TRACK, "Número da música (ou escolha pelo nome)", true, true)
+        return new OptionData(OptionType.INTEGER, TRACK, "Song number (or pick it by name)", true, true)
                 .setMinValue(1);
     }
 
     public static OptionData alias(boolean required) {
-        return new OptionData(OptionType.STRING, ALIAS, "Apelido para achar a música mais fácil", required)
+        return new OptionData(OptionType.STRING, ALIAS, "Nickname to find the song more easily", required)
                 .setMaxLength(40);
     }
 

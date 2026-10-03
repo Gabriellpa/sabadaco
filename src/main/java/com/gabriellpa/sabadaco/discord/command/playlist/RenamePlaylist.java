@@ -18,10 +18,10 @@ class RenamePlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("rename", "Renomeia uma playlist")
+        return new SubcommandData("rename", "Renames a playlist")
                 .addOptions(
                         PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"),
-                        new OptionData(OptionType.STRING, "name", "Novo nome", true).setMaxLength(50));
+                        new OptionData(OptionType.STRING, "name", "New name", true).setMaxLength(50));
     }
 
     @Override

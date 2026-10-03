@@ -18,7 +18,7 @@ public class PlayerCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("player", "Mostra o painel do player neste canal");
+        return Commands.slash("player", "Shows the player panel in this channel");
     }
 
     @Override

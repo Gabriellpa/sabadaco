@@ -23,8 +23,8 @@ public class SearchCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("search", "Busca músicas no YouTube")
-                .addOption(OptionType.STRING, "query", "O que procurar", true);
+        return Commands.slash("search", "Searches songs on YouTube")
+                .addOption(OptionType.STRING, "query", "What to search for", true);
     }
 
     @Override

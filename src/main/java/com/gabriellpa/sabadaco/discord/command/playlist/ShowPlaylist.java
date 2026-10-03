@@ -16,7 +16,7 @@ class ShowPlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("show", "Mostra as músicas de uma playlist")
+        return new SubcommandData("show", "Shows the songs in a playlist")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"));
     }
 

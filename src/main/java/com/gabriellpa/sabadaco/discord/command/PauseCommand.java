@@ -17,7 +17,7 @@ public class PauseCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("pause", "Pausa ou continua a música");
+        return Commands.slash("pause", "Pauses or resumes the music");
     }
 
     @Override

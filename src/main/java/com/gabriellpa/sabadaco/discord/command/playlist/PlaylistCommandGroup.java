@@ -12,6 +12,6 @@ public class PlaylistCommandGroup implements CommandGroup {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash(NAME, "Suas playlists (deste servidor ou globais)");
+        return Commands.slash(NAME, "Your playlists (this server or global)");
     }
 }

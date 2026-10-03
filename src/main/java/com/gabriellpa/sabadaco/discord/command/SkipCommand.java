@@ -19,7 +19,7 @@ public class SkipCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("skip", "Pula a música atual");
+        return Commands.slash("skip", "Skips the current song");
     }
 
     @Override

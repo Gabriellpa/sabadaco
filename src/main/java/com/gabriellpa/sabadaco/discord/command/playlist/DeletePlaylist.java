@@ -20,7 +20,7 @@ class DeletePlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("delete", "Apaga uma playlist")
+        return new SubcommandData("delete", "Deletes a playlist")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"));
     }
 

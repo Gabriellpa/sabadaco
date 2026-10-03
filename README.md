@@ -31,11 +31,11 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 
 ## Comandos
 
-Nomes em inglês com tradução automática para quem usa o Discord em pt-BR (`/tocar`, `/buscar`, `/fila`...).
+Nomes e descrições em inglês, traduzidos automaticamente para quem usa o Discord em pt-BR (`/tocar`, `/buscar`, `/fila`...) via `i18n/commands_pt_BR.properties`. Um teste falha se algum comando, opção ou escolha ficar sem tradução.
 
 | Comando | O que faz |
 |---|---|
-| `/play <música>` | URL ou nome. O autocomplete sugere suas músicas com apelido (⭐) e resultados do YouTube (🔎) |
+| `/play <música>` | URL ou nome. O autocomplete sugere suas músicas com apelido (⭐) e resultados do YouTube (🔎), com debounce de 400 ms e cache de 5 min |
 | `/search <busca>` | Modo busca: 5 resultados com botão ▶ e select 💾 para salvar em playlist (abre um modal com playlist + apelido) |
 | `/player` | Traz o painel do player (capa, progresso, botões ⏯ ⏭ ⏹ 🔀 🔁 🔉 🔊 📜) para o canal |
 | `/queue` | Fila paginada, com remover e limpar |
@@ -124,7 +124,7 @@ Implemente `PlaylistRepository` (5 métodos), anote com `@ConditionalOnProperty(
 | `sabadaco.tracks.played` / `sabadaco.tracks.failed` | counter | `source`, `origin` (single/playlist) |
 | `sabadaco.players.active`, `sabadaco.queue.size`, `sabadaco.playlists.saved` | gauge | `guild` (fila) |
 | `sabadaco.commands` / `sabadaco.components` | timer | `command`/`component`, `outcome` |
-| `sabadaco.searches` | counter | `outcome` |
+| `sabadaco.searches` | counter | `outcome` (found/empty/cached) |
 
 > O download exato por música não é atribuível (o HTTP do Lavaplayer não carrega o contexto da faixa), então o “KB da música” mede os bytes transmitidos, e o download é agregado por fonte.
 

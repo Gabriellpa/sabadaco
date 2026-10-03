@@ -20,9 +20,9 @@ class PlayPlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("play", "Toca uma playlist (músicas avulsas na fila tocam antes)")
+        return new SubcommandData("play", "Plays a playlist (single songs already queued play first)")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"))
-                .addOption(OptionType.BOOLEAN, "shuffle", "Ordem aleatória", false);
+                .addOption(OptionType.BOOLEAN, "shuffle", "Random order", false);
     }
 
     @Override

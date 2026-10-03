@@ -19,12 +19,12 @@ class CreatePlaylist extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("create", "Cria uma playlist")
+        return new SubcommandData("create", "Creates a playlist")
                 .addOptions(
-                        new OptionData(OptionType.STRING, "name", "Nome da playlist", true).setMaxLength(50),
-                        new OptionData(OptionType.STRING, "scope", "Onde ela vale (padrão: só neste servidor)", false)
-                                .addChoice("Só neste servidor", PlaylistScope.GUILD.name())
-                                .addChoice("Global (todos os servidores)", PlaylistScope.GLOBAL.name()));
+                        new OptionData(OptionType.STRING, "name", "Playlist name", true).setMaxLength(50),
+                        new OptionData(OptionType.STRING, "scope", "Where it applies (default: this server only)", false)
+                                .addChoice("This server only", PlaylistScope.GUILD.name())
+                                .addChoice("Global (all servers)", PlaylistScope.GLOBAL.name()));
     }
 
     @Override

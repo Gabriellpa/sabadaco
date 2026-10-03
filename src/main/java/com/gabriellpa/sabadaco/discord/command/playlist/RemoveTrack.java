@@ -15,7 +15,7 @@ class RemoveTrack extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("remove", "Remove uma música da playlist")
+        return new SubcommandData("remove", "Removes a song from the playlist")
                 .addOptions(PlaylistOptions.playlist(PlaylistOptions.PLAYLIST, "Playlist"), PlaylistOptions.track());
     }
 

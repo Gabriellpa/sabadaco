@@ -19,7 +19,7 @@ public class StopCommand implements SlashCommand {
 
     @Override
     public SlashCommandData definition() {
-        return Commands.slash("stop", "Para a música, limpa a fila e sai do canal");
+        return Commands.slash("stop", "Stops the music, clears the queue and leaves the channel");
     }
 
     @Override

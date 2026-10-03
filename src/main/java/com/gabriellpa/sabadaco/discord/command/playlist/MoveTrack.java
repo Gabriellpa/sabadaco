@@ -16,11 +16,11 @@ class MoveTrack extends PlaylistSubcommand {
 
     @Override
     public SubcommandData definition() {
-        return new SubcommandData("move", "Move uma música de uma playlist para outra")
+        return new SubcommandData("move", "Moves a song from one playlist to another")
                 .addOptions(
-                        PlaylistOptions.playlist(PlaylistOptions.FROM, "Playlist de origem"),
+                        PlaylistOptions.playlist(PlaylistOptions.FROM, "Source playlist"),
                         PlaylistOptions.track(),
-                        PlaylistOptions.playlist(PlaylistOptions.TO, "Playlist de destino"));
+                        PlaylistOptions.playlist(PlaylistOptions.TO, "Target playlist"));
     }
 
     @Override
