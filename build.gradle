@@ -29,6 +29,7 @@ ext {
     // Trocar pela próxima release (1.18.3+) quando sair.
     set("lavaplayerYoutubeSourceVersion", "2be8e542d3f6f178e048dca565892684c2e40177-SNAPSHOT")
     set("htmxVersion", "2.0.11")
+    set("idiomorphVersion", "0.7.4")
 }
 
 dependencies {
@@ -49,6 +50,9 @@ dependencies {
     }
     implementation("org.webjars.npm:htmx.org:${htmxVersion}") {
         because "Live updates in the admin panel without a frontend build"
+    }
+    implementation("org.webjars.npm:idiomorph:${idiomorphVersion}") {
+        because "HTMX morph: atualiza só o que mudou no polling (sem piscar nem reiniciar animações)"
     }
     implementation("org.webjars:webjars-locator-lite") {
         because "Version-agnostic /webjars/** URLs"

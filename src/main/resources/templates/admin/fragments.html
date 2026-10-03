@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" th:href="@{/css/admin.css}">
     <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
+    <script th:src="@{/webjars/idiomorph/dist/idiomorph-ext.min.js}" defer></script>
     <script th:src="@{/js/admin.js}" defer></script>
 </head>
 <body>
@@ -67,7 +68,7 @@
 
 <!-- Cards de todos os servidores (dashboard), atualizados a cada 2s -->
 <section id="players" th:fragment="players" class="grid"
-         th:hx-get="@{/admin/players}" hx-trigger="every 2s" hx-swap="outerHTML">
+         th:hx-get="@{/admin/players}" hx-trigger="every 2s" hx-swap="morph">
     <div class="card empty" th:if="${#lists.isEmpty(cards)}">
         <span class="big-emoji">📡</span>
         <span>O bot não está em nenhum servidor (ou ainda está conectando).</span>
@@ -93,15 +94,15 @@
                 <span th:text="|${p.queueSize()} na fila · vol ${p.volume()}% · ${@views.bytes(p.currentTrackBytes())}|"></span>
             </div>
             <div class="actions">
-                <button th:hx-post="@{/admin/players/{id}/pause(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML"
+                <button th:hx-post="@{/admin/players/{id}/pause(id=${card.id()})}" hx-target="#players" hx-swap="morph"
                         th:title="${p.paused()} ? 'Continuar' : 'Pausar'">
                     <svg th:if="${p.paused()}" class="icon" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                     <svg th:unless="${p.paused()}" class="icon" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>
                 </button>
-                <button th:hx-post="@{/admin/players/{id}/skip(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML" title="Pular">
+                <button th:hx-post="@{/admin/players/{id}/skip(id=${card.id()})}" hx-target="#players" hx-swap="morph" title="Pular">
                     <svg class="icon" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg>
                 </button>
-                <button class="danger" th:hx-post="@{/admin/players/{id}/stop(id=${card.id()})}" hx-target="#players" hx-swap="outerHTML" title="Parar">
+                <button class="danger" th:hx-post="@{/admin/players/{id}/stop(id=${card.id()})}" hx-target="#players" hx-swap="morph" title="Parar">
                     <svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></svg>
                 </button>
                 <button type="button" class="primary"
@@ -117,7 +118,7 @@
 
 <!-- Estado de um servidor (player + fila), atualizado a cada 2s -->
 <section id="state" th:fragment="guildState" class="stack"
-         th:hx-get="@{/admin/guilds/{id}/state(id=${card.id()})}" hx-trigger="every 2s" hx-swap="outerHTML"
+         th:hx-get="@{/admin/guilds/{id}/state(id=${card.id()})}" hx-trigger="every 2s" hx-swap="morph"
          th:with="p=${card.player()}">
     <div class="card empty" th:if="${p == null or !p.playing()}">
         <span class="big-emoji">💤</span><span>Nada tocando neste servidor.</span>
@@ -139,14 +140,14 @@
             <span th:text="|vol ${p.volume()}% · ${@views.loop(p.loopMode())} · ${@views.bytes(p.currentTrackBytes())} transmitidos|"></span>
         </div>
         <div class="actions">
-            <button th:hx-post="@{/admin/guilds/{id}/control/pause(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML"
+            <button th:hx-post="@{/admin/guilds/{id}/control/pause(id=${card.id()})}" hx-target="#state" hx-swap="morph"
                     th:text="${p.paused()} ? '▶ Continuar' : '⏸ Pausar'">⏸</button>
-            <button th:hx-post="@{/admin/guilds/{id}/control/skip(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏭ Pular</button>
-            <button th:hx-post="@{/admin/guilds/{id}/control/shuffle(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">🔀 Embaralhar</button>
-            <button th:hx-post="@{/admin/guilds/{id}/control/loop(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">🔁 Loop</button>
-            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() - 10})}" hx-target="#state" hx-swap="outerHTML">🔉 −10</button>
-            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() + 10})}" hx-target="#state" hx-swap="outerHTML">🔊 +10</button>
-            <button class="danger" th:hx-post="@{/admin/guilds/{id}/control/stop(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">⏹ Parar</button>
+            <button th:hx-post="@{/admin/guilds/{id}/control/skip(id=${card.id()})}" hx-target="#state" hx-swap="morph">⏭ Pular</button>
+            <button th:hx-post="@{/admin/guilds/{id}/control/shuffle(id=${card.id()})}" hx-target="#state" hx-swap="morph">🔀 Embaralhar</button>
+            <button th:hx-post="@{/admin/guilds/{id}/control/loop(id=${card.id()})}" hx-target="#state" hx-swap="morph">🔁 Loop</button>
+            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() - 10})}" hx-target="#state" hx-swap="morph">🔉 −10</button>
+            <button th:hx-post="@{/admin/guilds/{id}/volume(id=${card.id()},volume=${p.volume() + 10})}" hx-target="#state" hx-swap="morph">🔊 +10</button>
+            <button class="danger" th:hx-post="@{/admin/guilds/{id}/control/stop(id=${card.id()})}" hx-target="#state" hx-swap="morph">⏹ Parar</button>
             <button type="button" class="primary"
                     th:attr="data-listen=@{/admin/guilds/{id}/listen(id=${card.id()})},data-listen-title=${t.title()},data-listen-guild=${card.name()}">🎧 Ouvir</button>
         </div>
@@ -156,7 +157,7 @@
         <div class="card-head">
             <h2 th:text="|Fila (${p.queueSize()})|">Fila</h2>
             <button class="danger" th:if="${p.queueSize() > 0}" th:hx-post="@{/admin/guilds/{id}/control/clear(id=${card.id()})}"
-                    hx-target="#state" hx-swap="outerHTML" hx-confirm="Limpar a fila inteira?">Limpar fila</button>
+                    hx-target="#state" hx-swap="morph" hx-confirm="Limpar a fila inteira?">Limpar fila</button>
         </div>
         <p class="muted small">Músicas avulsas tocam antes das faixas de playlist.</p>
         <div class="table-wrap" th:if="${p.queueSize() > 0}">
@@ -170,9 +171,9 @@
                     <td th:text="${@views.user(entry.requesterId())}">user</td>
                     <td><span class="badge" th:text="${entry.fromPlaylist()} ? |📜 ${entry.playlistName()}| : '🎯 avulsa'">avulsa</span></td>
                     <td class="actions">
-                        <button class="icon-btn" title="Subir" th:disabled="${it.first}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index - 1})}" hx-target="#state" hx-swap="outerHTML">↑</button>
-                        <button class="icon-btn" title="Descer" th:disabled="${it.last}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index + 1})}" hx-target="#state" hx-swap="outerHTML">↓</button>
-                        <button class="icon-btn danger" title="Remover" th:hx-post="@{/admin/guilds/{id}/queue/{i}/remove(id=${card.id()},i=${it.index})}" hx-target="#state" hx-swap="outerHTML">🗑</button>
+                        <button class="icon-btn" title="Subir" th:disabled="${it.first}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index - 1})}" hx-target="#state" hx-swap="morph">↑</button>
+                        <button class="icon-btn" title="Descer" th:disabled="${it.last}" th:hx-post="@{/admin/guilds/{id}/queue/{i}/move(id=${card.id()},i=${it.index},to=${it.index + 1})}" hx-target="#state" hx-swap="morph">↓</button>
+                        <button class="icon-btn danger" title="Remover" th:hx-post="@{/admin/guilds/{id}/queue/{i}/remove(id=${card.id()},i=${it.index})}" hx-target="#state" hx-swap="morph">🗑</button>
                     </td>
                 </tr>
                 </tbody>
