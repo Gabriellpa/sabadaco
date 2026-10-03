@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: sabadaco
+  main:
+    banner-mode: "off"
+  threads:
+    virtual:
+      enabled: true
+
+discord:
+  token: ${DISCORD_BOT_TOKEN}
+  # Registra os comandos só neste servidor (propaga na hora). Vazio = comandos globais.
+  dev-guild-id: ${DISCORD_DEV_GUILD_ID:}
+
+sabadaco:
+  storage:
+    # memory | (futuro: jpa, mongo...) — escolhe a implementação de PlaylistRepository
+    type: memory
+  youtube:
+    cipher-url: ${YOUTUBE_CIPHER_URL:https://cipher.kikkia.dev/api}
+    cipher-password: ${YOUTUBE_CIPHER_PASSWORD:}
+  admin:
+    username: ${ADMIN_USER:admin}
+    # Vazio = gera uma senha aleatória e mostra no log ao subir
+    password: ${ADMIN_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  metrics:
+    tags:
+      application: sabadaco
