@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head th:replace="~{admin/fragments :: head('Servidores')}"></head>
+<body>
+<nav th:replace="~{admin/fragments :: nav}"></nav>
+<main>
+    <div th:replace="~{admin/fragments :: flash}"></div>
+    <h1>Servidores</h1>
+    <section class="stats">
+        <div class="stat"><span th:text="${stats.downloaded()}">0 B</span><small>baixados das fontes</small></div>
+        <div class="stat"><span th:text="${stats.sent()}">0 B</span><small>enviados ao Discord</small></div>
+        <div class="stat"><span th:text="${stats.tracksPlayed()}">0</span><small>músicas tocadas</small></div>
+        <div class="stat"><span th:text="${stats.commands()}">0</span><small>comandos</small></div>
+        <div class="stat"><span th:text="${stats.searches()}">0</span><small>buscas</small></div>
+    </section>
+    <section th:replace="~{admin/fragments :: players}"></section>
+</main>
+</body>
+</html>

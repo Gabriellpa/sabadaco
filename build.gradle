@@ -1,8 +1,8 @@
 plugins {
     id "java"
-    id "org.springframework.boot" version "4.0.0-M3"
+    id "org.springframework.boot" version "4.1.1"
     id "io.spring.dependency-management" version "1.1.7"
-    id "io.freefair.lombok" version "9.0.0"
+    id "io.freefair.lombok" version "9.8.0"
 }
 
 group = "com.gabriellpa"
@@ -17,65 +17,80 @@ java {
 
 repositories {
     mavenCentral()
-    maven { url "https://jitpack.io" }
     maven { url "https://maven.lavalink.dev/releases" }
-    maven {
-        url "https://m2.dv8tion.net/releases"
-    }
 }
 
 ext {
-    set("jdaVersion", "5.0.0-beta.14")
-    set("lavaplayerVersion", "2.2.4")
-    set("lavaplayerYoutubeSourceVersion", "1.14.0")
-    set("springBootVersion", "4.0.0-M3")
+    set("jdaVersion", "6.7.0")
+    set("jdaveVersion", "0.1.8")
+    set("lavaplayerVersion", "2.2.7")
+    set("lavaplayerYoutubeSourceVersion", "1.18.2")
+    set("htmxVersion", "2.0.11")
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter") {
-        because "Core Spring Boot features for DI, config, and app startup"
+    implementation("org.springframework.boot:spring-boot-starter-webmvc") {
+        because "Serves the admin panel"
     }
-
-    implementation("org.springframework.boot:spring-boot-starter-logging") {
-        because "Provides SLF4J + Logback for logging; required for @Slf4j"
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf") {
+        because "Server-side templates for the admin panel"
     }
-
-    implementation('org.springframework.boot:spring-boot-configuration-processor') {
-        because 'Provides annotation processing support for @ConfigurationProperties and IDE metadata generation'
+    implementation("org.springframework.boot:spring-boot-starter-security") {
+        because "Protects the admin panel with a simple login"
     }
-
-    implementation('org.springframework.cloud:spring-cloud-starter-bootstrap') {
-        because 'Enables bootstrap.yml support for early property loading in Spring Cloud applications'
+    implementation("org.springframework.boot:spring-boot-starter-actuator") {
+        because "Exposes health and custom Micrometer metrics"
+    }
+    implementation("io.micrometer:micrometer-registry-prometheus") {
+        because "Exposes metrics at /actuator/prometheus"
+    }
+    implementation("org.webjars.npm:htmx.org:${htmxVersion}") {
+        because "Live updates in the admin panel without a frontend build"
+    }
+    implementation("org.webjars:webjars-locator-lite") {
+        because "Version-agnostic /webjars/** URLs"
+    }
+    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor") {
+        because "Generates metadata for @ConfigurationProperties"
     }
 
     implementation("net.dv8tion:JDA:${jdaVersion}") {
-        because "Discord API client for connecting to Discord servers"
+        exclude module: "opus-java"
+        because "Discord API client (audio is encoded by Lavaplayer, so opus-java is not needed)"
     }
+    implementation("club.minnced:jdave-api:${jdaveVersion}") {
+        because "DAVE (E2EE) is mandatory for Discord voice connections since 2026-03-01"
+    }
+    runtimeOnly("club.minnced:jdave-native-win-x86-64:${jdaveVersion}")
+    runtimeOnly("club.minnced:jdave-native-linux-x86-64:${jdaveVersion}")
+    runtimeOnly("club.minnced:jdave-native-linux-aarch64:${jdaveVersion}")
+    runtimeOnly("club.minnced:jdave-native-darwin:${jdaveVersion}")
 
     implementation("dev.arbjerg:lavaplayer:${lavaplayerVersion}") {
-        because "Handles audio playback and streaming for Discord music bot"
+        because "Audio loading and playback"
     }
-
     implementation("dev.lavalink.youtube:v2:${lavaplayerYoutubeSourceVersion}") {
-        because("Required for Lavalink YouTube source plugin support")
+        because "Maintained YouTube source for Lavaplayer"
     }
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test") {
-        because "Provides testing framework and utilities (JUnit, AssertJ, Mockito, Spring Test support)"
-    }
-
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher") {
-        because "Required to run JUnit 5 tests on the runtime test engine"
-    }
-
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    testImplementation("org.awaitility:awaitility")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.1.0-M2"
-    }
-}
+def nativeAccess = ["--enable-native-access=ALL-UNNAMED"]
 
 tasks.named("test") {
     useJUnitPlatform()
+    jvmArgs nativeAccess
+}
+
+tasks.named("bootJar") {
+    archiveFileName = "sabadaco.jar"
+}
+
+tasks.named("bootRun") {
+    jvmArgs nativeAccess
 }

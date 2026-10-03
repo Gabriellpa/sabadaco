@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head th:replace="~{admin/fragments :: head(${card.name()})}"></head>
+<body>
+<nav th:replace="~{admin/fragments :: nav}"></nav>
+<main>
+    <div th:replace="~{admin/fragments :: flash}"></div>
+    <p><a th:href="@{/admin}">← Servidores</a></p>
+    <h1 th:text="${card.name()}">Servidor</h1>
+
+    <section th:replace="~{admin/fragments :: guildState}"></section>
+
+    <section class="grid two">
+        <form class="card" th:hx-post="@{/admin/guilds/{id}/play(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">
+            <h2>Tocar música</h2>
+            <label>Canal de voz
+                <select name="channelId" required>
+                    <option th:each="channel : ${voiceChannels}" th:value="${channel.id()}" th:text="${channel.name()}">canal</option>
+                </select>
+            </label>
+            <label>URL ou busca <input name="query" required placeholder="https://youtu.be/... ou nome da música"></label>
+            <button class="primary">▶️ Adicionar (avulsa)</button>
+        </form>
+
+        <form class="card" th:hx-post="@{/admin/guilds/{id}/play-playlist(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">
+            <h2>Tocar playlist</h2>
+            <label>Canal de voz
+                <select name="channelId" required>
+                    <option th:each="channel : ${voiceChannels}" th:value="${channel.id()}" th:text="${channel.name()}">canal</option>
+                </select>
+            </label>
+            <label>Playlist
+                <select name="playlistId" required>
+                    <option th:each="playlist : ${playlists}" th:value="${playlist.id()}"
+                            th:text="|${playlist.label()} — ${@views.user(playlist.ownerId())} (${playlist.tracks().size()})|">playlist</option>
+                </select>
+            </label>
+            <label class="inline"><input type="checkbox" name="shuffle" value="true"> Ordem aleatória</label>
+            <button class="primary">📜 Tocar playlist</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>
