@@ -1,5 +1,7 @@
 package com.gabriellpa.sabadaco.discord.command.playlist;
 
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.CustomId;
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.discord.ui.PlaylistView;
@@ -9,6 +11,10 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 
 /** Pede confirmação antes de apagar (o botão é tratado em PlaylistComponents). */
 @Component
@@ -33,5 +39,12 @@ class DeletePlaylist extends PlaylistSubcommand {
                         Button.danger(CustomId.of(PlaylistView.PREFIX, "delete", playlist.id()), "Apagar"),
                         Button.secondary(CustomId.of(PlaylistView.PREFIX, "cancel"), "Cancelar")))
                 .setEphemeral(true).queue();
+    }
+
+    @Override
+    public CommandHelp help() {
+        return CommandHelp.of(Category.PLAYLIST, "Apaga uma playlist.",
+                List.of(example("/playlist delete Favoritas", "Pede confirmação antes de apagar.")),
+                "Não dá para desfazer.");
     }
 }

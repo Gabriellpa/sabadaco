@@ -12,6 +12,9 @@ public interface CommandHandler {
 
     void handle(SlashCommandInteractionEvent event);
 
+    /** Ajuda exibida no {@code /help}. Obrigatória: comando sem ajuda não compila. */
+    CommandHelp help();
+
     /** Sugestões para opções com autocomplete. */
     default void autocomplete(CommandAutoCompleteInteractionEvent event) {
     }

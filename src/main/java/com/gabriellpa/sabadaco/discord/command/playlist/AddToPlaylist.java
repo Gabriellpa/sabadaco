@@ -1,5 +1,7 @@
 package com.gabriellpa.sabadaco.discord.command.playlist;
 
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.music.MusicService;
@@ -8,6 +10,10 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 
 @Component
 class AddToPlaylist extends PlaylistSubcommand {
@@ -36,5 +42,14 @@ class AddToPlaylist extends PlaylistSubcommand {
                 Interactions.string(event, PlaylistOptions.ALIAS));
         event.getHook().sendMessage("➕ **%s** adicionada à playlist **%s**.".formatted(
                 Format.escape(added.displayName()), Format.escape(playlist.name()))).queue();
+    }
+
+    @Override
+    public CommandHelp help() {
+        return CommandHelp.of(Category.PLAYLIST, "Adiciona uma música (busca ou URL) a uma playlist.",
+                List.of(
+                        example("/playlist add Clássicos do Sabadaço kasino gilberto barros alias: kassino", "Busca, salva a primeira opção e dá o apelido \"kassino\"."),
+                        example("/playlist add Clássicos do Sabadaço https://www.youtube.com/watch?v=RGqH4mfmtkQ", "Salva direto pela URL.")),
+                "O apelido aparece com ⭐ no autocomplete do /play.");
     }
 }

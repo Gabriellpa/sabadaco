@@ -1,5 +1,7 @@
 package com.gabriellpa.sabadaco.discord.command.playlist;
 
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.playlist.PlaylistScope;
@@ -9,6 +11,10 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 
 @Component
 class CreatePlaylist extends PlaylistSubcommand {
@@ -36,5 +42,14 @@ class CreatePlaylist extends PlaylistSubcommand {
                         .formatted(Format.escape(playlist.name()),
                                 playlist.scope() == PlaylistScope.GLOBAL ? "global" : "só neste servidor"))
                 .setEphemeral(true).queue();
+    }
+
+    @Override
+    public CommandHelp help() {
+        return CommandHelp.of(Category.PLAYLIST, "Cria uma playlist sua.",
+                List.of(
+                        example("/playlist create Clássicos do Sabadaço", "Cria só para este servidor (padrão)."),
+                        example("/playlist create Favoritas scope: Global", "Cria uma playlist que vale em todos os servidores.")),
+                "O nome não pode se repetir entre as suas playlists do mesmo escopo.");
     }
 }

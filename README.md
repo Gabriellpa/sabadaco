@@ -63,6 +63,7 @@ Nomes e descrições em inglês, traduzidos automaticamente para quem usa o Disc
 | `/skip` `/stop` `/pause` `/volume` | Controles |
 | `/playlist create\|list\|show\|play\|add\|add-current\|alias\|remove\|move\|rename\|delete` | Playlists |
 | `/kassino` | 🙂 |
+| `/help [comando]` | Todos os comandos por categoria, com exemplos (`/help play` vai direto) |
 
 ### Regra de prioridade: música avulsa × playlist
 

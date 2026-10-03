@@ -1,5 +1,7 @@
 package com.gabriellpa.sabadaco.discord.command;
 
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
+import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.interaction.SlashCommand;
 import com.gabriellpa.sabadaco.discord.ui.Format;
@@ -17,9 +19,12 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 
 /**
  * {@code /play}: URL ou texto. O autocomplete sugere primeiro as músicas com apelido do usuário
@@ -89,5 +94,16 @@ public class PlayCommand implements SlashCommand {
             return false;
         }
         return keystrokes.get(userId) == keystroke;
+    }
+
+    @Override
+    public CommandHelp help() {
+        return CommandHelp.of(Category.MUSIC, "Toca uma música pelo nome ou pela URL do YouTube.",
+                List.of(
+                        example("/play kasino sabadaço gilberto barros", "Busca e toca. Enquanto você digita, o autocomplete sugere resultados do YouTube (🔎)."),
+                        example("/play https://www.youtube.com/watch?v=RGqH4mfmtkQ", "Kasino – Can't Get Over ft. Gilberto Barros (versão Sabadaço), direto pela URL."),
+                        example("/play kassino", "Se você deu o apelido \"kassino\" a uma música de playlist, ela aparece no topo com ⭐.")),
+                "Você precisa estar em um canal de voz.",
+                "Músicas avulsas tocam antes do restante de uma playlist em andamento: o bot avisa quando isso acontece.");
     }
 }
