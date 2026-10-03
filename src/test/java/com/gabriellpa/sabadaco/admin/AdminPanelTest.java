@@ -3,6 +3,9 @@ package com.gabriellpa.sabadaco.admin;
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.discord.DiscordDirectory;
 import com.gabriellpa.sabadaco.discord.DiscordDirectory.GuildInfo;
+import com.gabriellpa.sabadaco.metrics.ActivityTracker;
+import com.gabriellpa.sabadaco.metrics.MetricsSampler;
+import com.gabriellpa.sabadaco.music.GuildPlayerRegistry;
 import com.gabriellpa.sabadaco.music.LoopMode;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.PlayerSnapshot;
@@ -65,6 +68,12 @@ class AdminPanelTest {
     PlaylistService playlistService;
     @MockitoBean
     DiscordDirectory directory;
+    @MockitoBean
+    GuildPlayerRegistry players;
+    @MockitoBean
+    MetricsSampler sampler;
+    @MockitoBean
+    ActivityTracker activity;
 
     private final TrackSummary song = new TrackSummary("Kasino no Sabadaço", "SBT", "https://youtu.be/LCDaw0QmQQc", 200_000,
             "https://i.ytimg.com/vi/LCDaw0QmQQc/hqdefault.jpg", false);
@@ -102,7 +111,7 @@ class AdminPanelTest {
         mvc.perform(get("/admin"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Kasino no Sabadaço")))
-                .andExpect(content().string(containsString("2,0 KB transmitidos")));
+                .andExpect(content().string(containsString("vol 100% · 2,0 KB")));
     }
 
     @Test

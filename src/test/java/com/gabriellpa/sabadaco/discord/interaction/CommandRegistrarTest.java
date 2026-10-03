@@ -34,7 +34,7 @@ class CommandRegistrarTest {
 
     @Configuration
     @ComponentScan(basePackageClasses = PlayCommand.class)
-    @Import(CommandRegistrar.class)
+    @Import({CommandRegistrar.class, HelpCatalog.class})
     static class Config {
         @Bean
         DiscordProperties discordProperties() {
@@ -58,7 +58,7 @@ class CommandRegistrarTest {
     void registersEveryCommandOnceWithSubcommandsGrouped() {
         var commands = byName();
 
-        assertThat(commands).containsKeys("play", "search", "player", "queue", "skip", "stop", "pause", "volume", "kassino", "playlist");
+        assertThat(commands).containsKeys("play", "search", "player", "queue", "skip", "stop", "pause", "volume", "kassino", "help", "playlist");
         assertThat(commands.get("playlist").getSubcommands()).extracting(SubcommandData::getName)
                 .containsExactlyInAnyOrder("create", "list", "show", "play", "add", "add-current", "alias", "remove", "move", "rename", "delete");
     }

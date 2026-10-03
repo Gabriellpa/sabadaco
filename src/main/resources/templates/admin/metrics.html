@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head th:replace="~{admin/fragments :: head('Métricas')}"></head>
+<body>
+<div class="app">
+    <aside th:replace="~{admin/fragments :: sidebar}"></aside>
+    <div class="main">
+        <header class="topbar">
+            <div>
+                <h1>Métricas</h1>
+                <p class="muted small">Atualizado a cada 2 segundos. Para histórico longo, use o Prometheus/Grafana.</p>
+            </div>
+            <span class="live-dot" id="live-status">ao vivo</span>
+        </header>
+        <main class="content">
+            <div th:replace="~{admin/fragments :: flash}"></div>
+            <div class="toolbar">
+                <nav class="tabs" id="metric-tabs" role="tablist" aria-label="Grupos de métricas">
+                    <span class="tab-indicator" aria-hidden="true"></span>
+                </nav>
+                <div class="row">
+                    <div class="segmented" id="metric-window" role="group" aria-label="Janela de tempo">
+                        <button type="button" data-window="2">2 min</button>
+                        <button type="button" data-window="5">5 min</button>
+                        <button type="button" data-window="15">15 min</button>
+                    </div>
+                    <button type="button" class="ghost" id="metric-pause">⏸ Pausar</button>
+                </div>
+            </div>
+            <div id="metric-panels"></div>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments :: listenBar}"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js" defer></script>
+<script th:src="@{/js/metrics.js}" defer></script>
+</body>
+</html>

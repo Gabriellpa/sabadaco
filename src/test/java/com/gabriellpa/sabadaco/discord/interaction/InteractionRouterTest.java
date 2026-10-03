@@ -40,6 +40,11 @@ class InteractionRouterTest {
         public void handle(SlashCommandInteractionEvent event) {
             calls.add("ping");
         }
+
+        @Override
+        public CommandHelp help() {
+            return CommandHelp.of(CommandHelp.Category.OTHER, "teste", List.of());
+        }
     };
 
     private final SlashCommand failing = new SlashCommand() {
@@ -51,6 +56,11 @@ class InteractionRouterTest {
         @Override
         public void handle(SlashCommandInteractionEvent event) {
             throw new UserFacingException("Entre em um canal de voz primeiro.");
+        }
+
+        @Override
+        public CommandHelp help() {
+            return CommandHelp.of(CommandHelp.Category.OTHER, "teste", List.of());
         }
     };
 
@@ -69,6 +79,11 @@ class InteractionRouterTest {
         public void handle(SlashCommandInteractionEvent event) {
             calls.add("playlist create");
         }
+
+        @Override
+        public CommandHelp help() {
+            return CommandHelp.of(CommandHelp.Category.OTHER, "teste", List.of());
+        }
     };
 
     private final ComponentHandler buttons = new ComponentHandler() {
@@ -84,7 +99,7 @@ class InteractionRouterTest {
     };
 
     private final InteractionRouter router = new InteractionRouter(List.of(ping, failing), List.of(create), List.of(buttons),
-            meterRegistry, mock(DiscordDirectory.class));
+            meterRegistry, mock(DiscordDirectory.class), event -> { });
 
     @Test
     void dispatchesByFullCommandName() {
@@ -123,7 +138,7 @@ class InteractionRouterTest {
     @Test
     void duplicateHandlersFailFast() {
         assertThatThrownBy(() -> new InteractionRouter(List.of(ping, ping), List.of(), List.of(),
-                meterRegistry, mock(DiscordDirectory.class))).isInstanceOf(IllegalStateException.class);
+                meterRegistry, mock(DiscordDirectory.class), event -> { })).isInstanceOf(IllegalStateException.class);
     }
 
     private static SlashCommandInteractionEvent slash(String fullName) {

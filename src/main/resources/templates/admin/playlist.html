@@ -2,64 +2,75 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
 <head th:replace="~{admin/fragments :: head(${playlist.name()})}"></head>
 <body>
-<nav th:replace="~{admin/fragments :: nav}"></nav>
-<main>
-    <div th:replace="~{admin/fragments :: flash}"></div>
-    <p><a th:href="@{/admin/playlists(owner=${playlist.ownerId()})}">← Playlists de <span th:text="${@views.user(playlist.ownerId())}"></span></a></p>
-    <h1 th:text="${playlist.name()}">Playlist</h1>
-    <p class="muted"
-       th:text="|${playlist.scope().name() == 'GLOBAL' ? '🌐 global' : '🏠 ' + @views.guild(playlist.guildId())} · ${playlist.tracks().size()} música(s) · ${@views.duration(playlist.totalDurationMs())}|"></p>
+<div class="app">
+    <aside th:replace="~{admin/fragments :: sidebar}"></aside>
+    <div class="main">
+        <header class="topbar">
+            <div>
+                <p class="small"><a th:href="@{/admin/playlists(owner=${playlist.ownerId()})}">← Playlists de <span th:text="${@views.user(playlist.ownerId())}"></span></a></p>
+                <h1 th:text="${playlist.name()}">Playlist</h1>
+                <p class="muted small"
+                   th:text="|${playlist.scope().name() == 'GLOBAL' ? '🌐 global' : '🏠 ' + @views.guild(playlist.guildId())} · ${playlist.tracks().size()} música(s) · ${@views.duration(playlist.totalDurationMs())}|"></p>
+            </div>
+        </header>
+        <main class="content">
+            <div th:replace="~{admin/fragments :: flash}"></div>
 
-    <section class="grid two">
-        <form class="card" th:action="@{/admin/playlists/{id}/rename(id=${playlist.id()})}" method="post">
-            <h2>Renomear</h2>
-            <label>Nome <input name="name" th:value="${playlist.name()}" required maxlength="50"></label>
-            <button>Salvar</button>
-        </form>
-        <form class="card" th:action="@{/admin/playlists/{id}/tracks(id=${playlist.id()})}" method="post">
-            <h2>Adicionar música</h2>
-            <label>URL ou busca <input name="query" required></label>
-            <label>Apelido (opcional) <input name="alias" maxlength="40"></label>
-            <button class="primary">Adicionar</button>
-        </form>
-    </section>
+            <section class="grid two">
+                <form class="card" th:action="@{/admin/playlists/{id}/rename(id=${playlist.id()})}" method="post">
+                    <div class="card-head"><h2>✏️ Renomear</h2></div>
+                    <label>Nome <input name="name" th:value="${playlist.name()}" required maxlength="50"></label>
+                    <button>Salvar</button>
+                </form>
+                <form class="card" th:action="@{/admin/playlists/{id}/tracks(id=${playlist.id()})}" method="post">
+                    <div class="card-head"><h2>➕ Adicionar música</h2></div>
+                    <label>URL ou busca <input name="query" required placeholder="kasino sabadaço gilberto barros"></label>
+                    <label>Apelido (opcional) <input name="alias" maxlength="40" placeholder="kassino"></label>
+                    <button class="primary">Adicionar</button>
+                </form>
+            </section>
 
-    <div class="card">
-        <table>
-            <thead><tr><th>#</th><th>Música</th><th>Apelido</th><th>Mover para</th><th></th></tr></thead>
-            <tbody>
-            <tr th:if="${#lists.isEmpty(playlist.tracks())}"><td colspan="5" class="muted">Playlist vazia.</td></tr>
-            <tr th:each="track, it : ${playlist.tracks()}">
-                <td th:text="${it.count}">1</td>
-                <td><a th:href="${track.uri()}" target="_blank" rel="noopener" th:text="${track.title()}">título</a>
-                    <div class="muted small" th:text="|${track.author()} · ${@views.duration(track.durationMs())}|"></div></td>
-                <td>
-                    <form class="inline" th:action="@{/admin/playlists/{id}/tracks/{i}/alias(id=${playlist.id()},i=${it.index})}" method="post">
-                        <input name="alias" th:value="${track.alias()}" maxlength="40" placeholder="sem apelido">
-                        <button title="Salvar apelido">🏷️</button>
-                    </form>
-                </td>
-                <td>
-                    <form class="inline" th:if="${!#lists.isEmpty(siblings)}" th:action="@{/admin/playlists/{id}/tracks/{i}/move(id=${playlist.id()},i=${it.index})}" method="post">
-                        <select name="to">
-                            <option th:each="other : ${siblings}" th:value="${other.id()}" th:text="${other.label()}">outra</option>
-                        </select>
-                        <button title="Mover">↪️</button>
-                    </form>
-                </td>
-                <td>
-                    <form th:action="@{/admin/playlists/{id}/tracks/{i}/remove(id=${playlist.id()},i=${it.index})}" method="post">
-                        <button class="danger" title="Remover">🗑️</button>
-                    </form>
-                </td>
-            </tr>
-            </tbody>
-        </table>
+            <div class="card section-gap">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Música</th><th>Apelido</th><th>Mover para</th><th></th></tr></thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(playlist.tracks())}"><td colspan="5" class="muted">Playlist vazia.</td></tr>
+                        <tr th:each="track, it : ${playlist.tracks()}">
+                            <td th:text="${it.count}">1</td>
+                            <td><a th:href="${track.uri()}" target="_blank" rel="noopener" th:text="${track.title()}">título</a>
+                                <div class="muted small" th:text="|${track.author()} · ${@views.duration(track.durationMs())}|"></div></td>
+                            <td>
+                                <form class="inline" th:action="@{/admin/playlists/{id}/tracks/{i}/alias(id=${playlist.id()},i=${it.index})}" method="post">
+                                    <input name="alias" th:value="${track.alias()}" maxlength="40" placeholder="sem apelido">
+                                    <button class="icon-btn" title="Salvar apelido">🏷️</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form class="inline" th:if="${!#lists.isEmpty(siblings)}" th:action="@{/admin/playlists/{id}/tracks/{i}/move(id=${playlist.id()},i=${it.index})}" method="post">
+                                    <select name="to">
+                                        <option th:each="other : ${siblings}" th:value="${other.id()}" th:text="${other.label()}">outra</option>
+                                    </select>
+                                    <button class="icon-btn" title="Mover">↪️</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form th:action="@{/admin/playlists/{id}/tracks/{i}/remove(id=${playlist.id()},i=${it.index})}" method="post">
+                                    <button class="icon-btn danger" title="Remover">🗑</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <form class="section-gap" th:action="@{/admin/playlists/{id}/delete(id=${playlist.id()})}" method="post" onsubmit="return confirm('Apagar esta playlist?')">
+                <button class="danger">Apagar playlist</button>
+            </form>
+        </main>
     </div>
-
-    <form th:action="@{/admin/playlists/{id}/delete(id=${playlist.id()})}" method="post" onsubmit="return confirm('Apagar esta playlist?')">
-        <button class="danger">Apagar playlist</button>
-    </form>
-</main>
+</div>
+<div th:replace="~{admin/fragments :: listenBar}"></div>
 </body>
 </html>

@@ -96,11 +96,11 @@ Os princípios que guiaram as escolhas:
 | `JdaVoiceGateway` | Implementa `VoiceGateway`: abre a conexão de voz e pluga o `AudioPlayerSendHandler`. |
 | `AudioPlayerSendHandler` | Ponte Lavaplayer → JDA: o JDA pede um frame Opus a cada 20 ms. |
 | `DiscordDirectory` | Nomes de servidores, canais e usuários para o admin (usuários são lembrados quando interagem). |
-| `interaction.*` | O "framework" de comandos (veja [5.1](#51-comandos-por-interface-e-não-por-anotação--reflexão)). |
-| `command.*` | Um comando por classe. `PlaybackReplies` concentra o fluxo "tocar + responder + garantir painel". |
+| `interaction.*` | O "framework" de comandos (veja [5.1](#51-comandos-por-interface-e-não-por-anotação--reflexão)). Inclui `CommandHelp` (a ajuda que cada comando declara) e `HelpCatalog` (junta a ajuda de todos para o `/help`, veja [5.14](#514-help-montado-a-partir-dos-próprios-comandos)). |
+| `command.*` | Um comando por classe (inclui `HelpCommand`, o `/help`). `PlaybackReplies` concentra o fluxo "tocar + responder + garantir painel". |
 | `command.playlist.*` | Os 11 subcomandos de `/playlist`, cada um em sua classe, com base comum `PlaylistSubcommand` e opções/autocomplete em `PlaylistOptions`. |
-| `component.*` | Handlers de botões, selects e modais (`PlayerButtons`, `QueueComponents`, `SearchComponents`, `PlaylistComponents`). |
-| `ui.*` | Montagem das mensagens Components V2 (`PlayerPanel`, `QueueView`, `SearchView`, `PlaylistView`), textos (`EnqueueMessages`, `Format`, `Messages`) e o `PlayerPanelUpdater`. |
+| `component.*` | Handlers de botões, selects e modais (`PlayerButtons`, `QueueComponents`, `SearchComponents`, `PlaylistComponents`, `HelpComponents`). |
+| `ui.*` | Montagem das mensagens Components V2 (`PlayerPanel`, `QueueView`, `SearchView`, `PlaylistView`, `HelpView`), textos (`EnqueueMessages`, `Format`, `Messages`) e o `PlayerPanelUpdater`. |
 
 ### `admin`: painel web
 
@@ -519,6 +519,33 @@ Regras são validadas onde fazem sentido (serviço, scheduler) e lançam `UserFa
 
 O código original removia `https://` de URLs do YouTube. Testado com Lavaplayer 2.2.7 + youtube-source 1.18.2: o `DefaultAudioPlayerManager` tenta os sources **na ordem de registro** e para no primeiro que reconhece; o YouTube é registrado primeiro e sua regex aceita `https://`. A remoção deixou de ser necessária. Pior: sem o esquema (`www.youtube.com/...`), o texto acabava virando **busca**. Hoje: URL passa direto; texto livre vira `ytsearch:`.
 
+### 5.14 `/help` montado a partir dos próprios comandos
+
+O `/help` lista todos os comandos por categoria e mostra exemplos de cada um. Em vez de manter um texto de ajuda separado (que envelhece), **cada comando descreve a si mesmo**:
+
+```java
+public interface CommandHandler {
+    void handle(SlashCommandInteractionEvent event);
+    CommandHelp help();     // obrigatório
+    ...
+}
+
+@Override
+public CommandHelp help() {
+    return CommandHelp.of(Category.MUSIC, "Toca uma música pelo nome ou pela URL do YouTube.",
+            List.of(example("/play kasino sabadaço gilberto barros", "Busca e toca.")),
+            "Sem nada tocando a música começa na hora.");
+}
+```
+
+- **`help()` é obrigatório** em `CommandHandler` (e portanto em `SlashCommand` e `Subcommand`), sem método `default`. Um comando novo sem ajuda **não compila**, então nenhum comando fica de fora do `/help`. É a mesma ideia de "erro na compilação" da [5.1](#51-comandos-por-interface-e-não-por-anotação--reflexão).
+- **`CommandHelp`** é um record imutável: categoria (`MUSIC`, `CONTROLS`, `PLAYLIST`, `OTHER`), resumo de uma linha, exemplos (comando + explicação) e dicas.
+- **`HelpCatalog`** junta o que os comandos declaram: nome, descrição (do `definition()`), a ajuda e o **nome em português**, lido do mesmo `commands_pt_BR.properties` usado na localização (sem tradução, vale o nome em inglês). `find` aceita o nome em inglês ou em português, com ou sem `/` (`play`, `tocar`, `playlist move`, `playlist mover`).
+- **Por que `ObjectProvider` e não `List<SlashCommand>`?** O próprio `HelpCommand` é um `SlashCommand`. Pedir a lista no construtor do `HelpCatalog` criaria um ciclo (o catálogo dependeria do help, que depende do catálogo). Com `ObjectProvider` a lista só é resolvida quando o `/help` é usado, quando todos os beans já existem.
+- **Telas** (`HelpView`, Components V2, sempre efêmeras): a visão geral agrupa por categoria e traz um select `🔍 Ver exemplos de um comando…`; o detalhe traz exemplos em blocos de código e dicas, com o botão `◀️ Todos os comandos`. `HelpComponents` trata o select e o botão **editando a mesma mensagem**, em vez de mandar outra. `/help command:<nome>` (`/ajuda comando:<nome>`) tem autocomplete e vai direto ao detalhe; nome inexistente vira `UserFacingException` (resposta efêmera).
+- O select do Discord aceita **no máximo 25 opções**; hoje são 21 comandos e subcomandos. Passando disso, será preciso paginar.
+- **Teste:** `HelpCatalogTest` garante que todos os comandos e subcomandos têm resumo e exemplos, e que cada exemplo começa com o próprio nome do comando.
+
 ---
 
 ## 6. Discord: recursos usados
@@ -587,6 +614,7 @@ Duas limitações conscientes:
 | `SearchServiceTest` | Cache, expiração e não-cache de vazio |
 | `InteractionRouterTest` | Despacho por nome e prefixo, erro amigável, `:` no payload, duplicados |
 | `CommandRegistrarTest` | Todos os comandos registrados, subcomandos agrupados, guild-only, **tradução completa** |
+| `HelpCatalogTest` | Todo comando e subcomando tem resumo e exemplos, e os exemplos começam com o nome do próprio comando |
 | `AdminPanelTest` | Telas renderizam de verdade (Thymeleaf), login, CSRF, toast |
 | `SabadacoApplicationTests` | O contexto Spring inteiro sobe (JDA mockado) |
 
@@ -608,9 +636,17 @@ public class NowPlayingCommand implements SlashCommand {
     }
 
     public void handle(SlashCommandInteractionEvent event) { ... }
+
+    public CommandHelp help() {
+        return CommandHelp.of(Category.MUSIC, "Mostra a música que está tocando.",
+                List.of(example("/nowplaying", "Mostra título, autor e progresso.")));
+    }
 }
 ```
-Depois, adicione `nowplaying.name` e `nowplaying.description` em `commands_pt_BR.properties`; o teste avisa se esquecer.
+Além da classe, três coisas são obrigatórias, e as duas últimas têm teste que avisa:
+1. **`help()`**: sem ele o código não compila. Dê um resumo, exemplos que começam com o próprio comando (`HelpCatalogTest` confere) e, se quiser, dicas. O `/help` passa a listar o comando sozinho.
+2. Adicione `nowplaying.name` e `nowplaying.description` em `commands_pt_BR.properties` (o `CommandRegistrarTest` avisa se esquecer).
+3. Se o comando tiver uma categoria nova, acrescente-a em `CommandHelp.Category`.
 
 **Novo botão:** implemente `ComponentHandler` com um `prefix()` novo e use `CustomId.of(prefixo, acao, payload)` ao criar o botão.
 
