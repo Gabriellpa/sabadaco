@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
@@ -124,18 +125,28 @@ class TrackSchedulerTest {
     }
 
     @Test
-    void trackEndCountsBytesAndAdvances() {
-        scheduler.enqueue(List.of(single("A"), single("B")));
+    void trackEndCountsBytesAndAdvancesAsynchronously() {
+        var first = single("A");
+        scheduler.enqueue(List.of(first, single("B")));
         scheduler.recordSentBytes(1000);
         assertThat(scheduler.snapshot().currentTrackBytes()).isEqualTo(1000L);
 
-        var playing = mock(AudioTrack.class);
-        when(playing.getInfo()).thenReturn(info("A"));
-        scheduler.onTrackEnd(player, playing, AudioTrackEndReason.FINISHED);
+        scheduler.onTrackEnd(player, first.track(), AudioTrackEndReason.FINISHED);
 
         var ended = events.stream().filter(PlayerEvent.TrackEnded.class::isInstance).map(PlayerEvent.TrackEnded.class::cast).findFirst();
         assertThat(ended).get().extracting(PlayerEvent.TrackEnded::bytesSent).isEqualTo(1000L);
         assertThat(scheduler.totalBytesSent()).isEqualTo(1000L);
+        await().untilAsserted(() -> assertThat(started).containsExactly("A", "B"));
+    }
+
+    @Test
+    void lateEndOfAnAlreadySkippedTrackDoesNotSkipAgain() {
+        var first = single("A");
+        scheduler.enqueue(List.of(first, single("B"), single("C")));
+        scheduler.skip(); // usuário pulou: B tocando
+
+        scheduler.advanceAfter(first.track()); // fim atrasado de A não deve pular B
+
         assertThat(started).containsExactly("A", "B");
     }
 

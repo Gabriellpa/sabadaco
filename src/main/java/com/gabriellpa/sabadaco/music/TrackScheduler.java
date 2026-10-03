@@ -156,12 +156,16 @@ public class TrackScheduler extends AudioEventAdapter {
         events.accept(new PlayerEvent.TrackStarted(guildId, queued(track)));
     }
 
+    /**
+     * O Lavaplayer chama este listener segurando o lock interno dele; avançar aqui (que pega o lock
+     * do scheduler) poderia dar deadlock com um {@link #skip()} concorrente. Por isso o avanço é assíncrono.
+     */
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         events.accept(new PlayerEvent.TrackEnded(guildId, queued(track), endReason.name(),
                 currentTrackBytes.getAndSet(0), track.getPosition()));
         if (endReason.mayStartNext) {
-            next();
+            Thread.startVirtualThread(() -> advanceAfter(track));
         }
     }
 
@@ -174,7 +178,24 @@ public class TrackScheduler extends AudioEventAdapter {
     @Override
     public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
         log.warn("Faixa travada {} na guild {}, pulando", track.getInfo().uri, guildId);
-        skip();
+        Thread.startVirtualThread(() -> {
+            synchronized (this) {
+                if (isCurrent(track)) {
+                    skip();
+                }
+            }
+        });
+    }
+
+    /** Só avança se ninguém já trocou de faixa nesse meio tempo (ex.: skip ao mesmo tempo). */
+    synchronized void advanceAfter(AudioTrack ended) {
+        if (isCurrent(ended)) {
+            next();
+        }
+    }
+
+    private boolean isCurrent(AudioTrack track) {
+        return current != null && current.track() == track;
     }
 
     private QueuedTrack pollNext(boolean skipping) {
