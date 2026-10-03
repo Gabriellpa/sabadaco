@@ -282,13 +282,13 @@ flowchart LR
 </div>
 
 <h2>Pontos para você responder</h2>
-<div class="card questions" id="questions">
+<div class="card" id="questions">
   <ul id="questions-list">
-    <li><strong>(não bloqueante)</strong> Descrições dos comandos ficaram em português como padrão (só os NOMES têm tradução pt-BR). Clientes em inglês veem /play com descrição em PT. Quer descrições em inglês + tradução?</li>
-    <li><strong>(não bloqueante)</strong> Respostas de /play, /skip, /stop são públicas no canal (social); erros e listas são efêmeros. Ok?</li>
-    <li><strong>(não bloqueante)</strong> Teste real no Discord pendente: precisa do seu token (DISCORD_BOT_TOKEN) + DISCORD_DEV_GUILD_ID. O JDAVE (DAVE) só é exercitado de verdade numa conexão de voz real.</li>
-    <li><strong>(não bloqueante)</strong> htmx ficou na 2.0.11 (a 4.0.0 acabou de sair e muda herança de atributos); migrar depois?</li>
-    <li><strong>(não bloqueante)</strong> Autocomplete do /play faz uma busca no YouTube a cada tecla (≥3 caracteres). Ok ou prefere só /search?</li>
+    <li><span class="badge" style="color:var(--done)">respondido</span> <s class="muted">Descrições dos comandos ficaram em português como padrão (só os NOMES têm tradução pt-BR). Clientes em inglês veem /play com descrição em PT. Quer descrições em inglês + tradução?</s><br><strong>Respondido: sim, traduzir. Feito: descrições em inglês + tradução pt-BR completa, com teste que falha se faltar tradução.</strong></li>
+    <li><span class="badge" style="color:var(--done)">respondido</span> <s class="muted">Respostas de /play, /skip, /stop são públicas no canal (social); erros e listas são efêmeros. Ok?</s><br><strong>Respondido: aprovado, respostas públicas para /play, /skip, /stop.</strong></li>
+    <li><span class="badge" style="color:var(--done)">respondido</span> <s class="muted">Teste real no Discord pendente: precisa do seu token (DISCORD_BOT_TOKEN) + DISCORD_DEV_GUILD_ID. O JDAVE (DAVE) só é exercitado de verdade numa conexão de voz real.</s><br><strong>Respondido: o usuário vai testar no Discord na sequência.</strong></li>
+    <li><span class="badge" style="color:var(--done)">respondido</span> <s class="muted">htmx ficou na 2.0.11 (a 4.0.0 acabou de sair e muda herança de atributos); migrar depois?</s><br><strong>Respondido: manter htmx 2.0.11, reavaliar depois.</strong></li>
+    <li><span class="badge" style="color:var(--done)">respondido</span> <s class="muted">Autocomplete do /play faz uma busca no YouTube a cada tecla (≥3 caracteres). Ok ou prefere só /search?</s><br><strong>Respondido: aprovado o autocomplete; adicionado debounce de 400ms por usuário + cache de 5 min de buscas.</strong></li>
   </ul>
 </div>
 
@@ -326,6 +326,9 @@ flowchart LR
     <li><time>2026-10-03</time> Fase 8 concluída: 35 testes verdes; README reescrito. A revisão final encontrou e corrigiu um risco de deadlock: Lavaplayer chama onTrackEnd segurando o lock interno; o avanço da fila agora é assíncrono com guarda contra pulo duplo.</li>
     <li><time>2026-10-03</time> Commit: painel admin, testes e README.</li>
     <li><time>2026-10-03</time> Commit: fix deadlock Lavaplayer x scheduler; gauge renomeada para sabadaco.playlists.saved.</li>
+    <li><time>2026-10-03</time> Ajuste: descrições dos comandos em inglês com tradução pt-BR (nomes, descrições, opções e escolhas); teste de cobertura de tradução.</li>
+    <li><time>2026-10-03</time> Ajuste: autocomplete do /play com debounce de 400ms e cache de buscas (5 min) no SearchService.</li>
+    <li><time>2026-10-03</time> Commit 5eaf81c.</li>
   </ol>
 </div>
 
