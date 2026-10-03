@@ -38,3 +38,6 @@ out/
 
 ### Segredos locais ###
 .env
+
+### Heap dumps da JVM ###
+*.hprof

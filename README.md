@@ -45,6 +45,7 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 | `DISCORD_DEV_GUILD_ID` | vazio | Registro de comandos em um servidor só (dev) |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / aleatória | Login do painel e basic auth do `/actuator/prometheus` |
 | `YOUTUBE_CIPHER_URL` / `YOUTUBE_CIPHER_PASSWORD` | `https://cipher.kikkia.dev/api` | Servidor de cipher do YouTube (recomendado hospedar o seu: [yt-cipher](https://github.com/kikkia/yt-cipher)) |
+| `YOUTUBE_OAUTH_ENABLED` / `YOUTUBE_OAUTH_REFRESH_TOKEN` | `false` / vazio | Login no YouTube (client TV), **só se** voltar a aparecer *"This video requires login"* (hoje o client IOS toca sem login). **Use uma conta Google descartável.** Passo a passo no `.env.example` |
 
 > A JVM precisa de `--enable-native-access=ALL-UNNAMED` (já configurado no `bootRun`/`test`) por causa do JDAVE.
 > O Discord exige o protocolo **DAVE** (E2EE) em toda conexão de voz desde 01/03/2026; sem ele o bot não toca.
@@ -77,6 +78,8 @@ O usuário é avisado nos dois sentidos:
 - `/playlist move` move uma música (com o apelido) de uma playlist para outra.
 
 ## Arquitetura
+
+> Explicação detalhada de classes, fluxos, concorrência e decisões (por que `synchronized`, virtual threads, `CompletableFuture` etc.): **[docs/ARQUITETURA.md](docs/ARQUITETURA.md)**.
 
 ```mermaid
 flowchart LR

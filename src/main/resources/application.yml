@@ -19,6 +19,9 @@ sabadaco:
   youtube:
     cipher-url: ${YOUTUBE_CIPHER_URL:https://cipher.kikkia.dev/api}
     cipher-password: ${YOUTUBE_CIPHER_PASSWORD:}
+    # Login OAuth (client TV) para quando o YouTube exigir login. Use uma conta Google descartável.
+    oauth-enabled: ${YOUTUBE_OAUTH_ENABLED:false}
+    oauth-refresh-token: ${YOUTUBE_OAUTH_REFRESH_TOKEN:}
   admin:
     username: ${ADMIN_USER:admin}
     # Vazio = gera uma senha aleatória e mostra no log ao subir
