@@ -2,12 +2,15 @@ package com.gabriellpa.sabadaco.discord.ui;
 
 import com.gabriellpa.sabadaco.music.TrackSummary;
 
+import java.util.Locale;
+
 /**
  * Formatação de textos exibidos no Discord (e reaproveitada pelo painel admin).
  */
 public final class Format {
 
     private static final int BAR_WIDTH = 16;
+    private static final Locale PT_BR = Locale.of("pt", "BR");
 
     private Format() {
     }
@@ -37,9 +40,9 @@ public final class Format {
             return bytes + " B";
         }
         if (bytes < 1024 * 1024) {
-            return "%.1f KB".formatted(bytes / 1024.0);
+            return String.format(PT_BR, "%.1f KB", bytes / 1024.0);
         }
-        return "%.2f MB".formatted(bytes / (1024.0 * 1024));
+        return String.format(PT_BR, "%.2f MB", bytes / (1024.0 * 1024));
     }
 
     public static String truncate(String text, int max) {

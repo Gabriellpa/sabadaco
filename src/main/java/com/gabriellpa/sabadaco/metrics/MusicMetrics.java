@@ -22,7 +22,7 @@ import java.time.Duration;
  *     <li>{@code sabadaco.track.bytes} — bytes transmitidos por música (KB da música)</li>
  *     <li>{@code sabadaco.track.listened} — tempo ouvido por música, com o motivo do fim</li>
  *     <li>{@code sabadaco.tracks.played} / {@code sabadaco.tracks.failed}</li>
- *     <li>{@code sabadaco.players.active}, {@code sabadaco.queue.size}, {@code sabadaco.playlists.total}</li>
+ *     <li>{@code sabadaco.players.active}, {@code sabadaco.queue.size}, {@code sabadaco.playlists.saved}</li>
  *     <li>{@code sabadaco.commands}, {@code sabadaco.components}, {@code sabadaco.searches} (registradas onde acontecem)</li>
  * </ul>
  */
@@ -38,7 +38,7 @@ public class MusicMetrics {
         Gauge.builder("sabadaco.players.active", players, all -> all.all().stream().filter(p -> p.snapshot().playing()).count())
                 .description("Servidores tocando música agora")
                 .register(registry);
-        Gauge.builder("sabadaco.playlists.total", playlists, PlaylistService::count)
+        Gauge.builder("sabadaco.playlists.saved", playlists, PlaylistService::count)
                 .description("Playlists salvas")
                 .register(registry);
     }

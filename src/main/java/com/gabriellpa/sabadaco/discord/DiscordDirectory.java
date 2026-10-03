@@ -47,6 +47,17 @@ public class DiscordDirectory {
                 .toList();
     }
 
+    /** Canais de voz do servidor; usado pelo admin para tocar sem o bot já estar conectado. */
+    public List<GuildInfo> voiceChannels(long guildId) {
+        var guild = jda.getGuildById(guildId);
+        if (guild == null) {
+            return List.of();
+        }
+        return guild.getVoiceChannels().stream()
+                .map(channel -> new GuildInfo(channel.getIdLong(), channel.getName()))
+                .toList();
+    }
+
     public Map<Long, String> knownUsers() {
         return Map.copyOf(userNames);
     }

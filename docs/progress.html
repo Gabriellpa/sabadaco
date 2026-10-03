@@ -122,68 +122,68 @@ pre.mermaid, .diagram {
   </ul>
 </section>
 
-<section id="phase-2" class="card phase" data-status="em andamento">
-  <div class="phase-head"><h3>Fase 2 — Framework de interação</h3><span class="badge">em andamento</span></div>
+<section id="phase-2" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 2 — Framework de interação</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> Interfaces <code>SlashCommand</code>, <code>Subcommand</code>, <code>ComponentHandler</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>InteractionRouter</code> (despacho, métricas de tempo, tratamento de erro único)</label></li>
-    <li><label><input type="checkbox" disabled> <code>CommandRegistrar</code> com registro em bulk (<code>updateCommands()</code>) e <code>dev-guild-id</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>UserFacingException</code> e helper <code>Interactions</code></label></li>
-    <li><label><input type="checkbox" disabled> Localização pt-BR dos comandos</label></li>
-    <li><label><input type="checkbox" disabled> Migrar <code>/kassino</code> para validar o modelo</label></li>
+    <li><label><input type="checkbox" checked disabled> Interfaces <code>SlashCommand</code>, <code>Subcommand</code> (com <code>parent()</code>), <code>CommandGroup</code>, <code>ComponentHandler</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>InteractionRouter</code> único (virtual threads, timer de métricas, erros centralizados: <code>UserFacingException</code> vira resposta efêmera)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>CommandRegistrar</code> com registro em bulk (<code>updateCommands()</code>) e <code>dev-guild-id</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>UserFacingException</code> e helper <code>Interactions</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Localização pt-BR dos nomes (/tocar, /buscar, /fila, /playlist criar...); para adicionar um comando basta 1 classe <code>@Component</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Migrar <code>/kassino</code> para validar o modelo</label></li>
   </ul>
 </section>
 
-<section id="phase-3" class="card phase" data-status="em andamento">
-  <div class="phase-head"><h3>Fase 3 — Núcleo de música</h3><span class="badge">em andamento</span></div>
+<section id="phase-3" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 3 — Núcleo de música</h3><span class="badge">concluída</span></div>
   <ul class="check">
     <li><label><input type="checkbox" checked disabled> <code>GuildPlayer</code> e <code>GuildPlayerRegistry</code></label></li>
     <li><label><input type="checkbox" checked disabled> <code>TrackScheduler</code> com 2 filas (prioridade e playlist), loop e shuffle</label></li>
     <li><label><input type="checkbox" checked disabled> <code>TrackLoader</code> e <code>SearchService</code> (<code>ytsearch:</code>)</label></li>
     <li><label><input type="checkbox" checked disabled> <code>VoiceGateway</code> (porta)</label></li>
-    <li><label><input type="checkbox" disabled> <code>JdaVoiceGateway</code> (adaptador de voz JDA)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>JdaVoiceGateway</code> (JDAVE/DAVE, selfDeafened); <code>AudioPlayerSendHandler</code> conta bytes enviados</label></li>
     <li><label><input type="checkbox" checked disabled> <code>PlayerEvent</code> (sealed) via Spring events</label></li>
-    <li><label><input type="checkbox" disabled> Corrigir bugs 3 a 6 (opção de busca, deferReply, <code>asTextChannel</code>, normalização de URL)</label></li>
+    <li><label><input type="checkbox" checked disabled> Bugs 3 a 6 resolvidos pelo redesenho (opção de busca, deferReply, <code>asTextChannel</code>, normalização de URL)</label></li>
       <li><label><input type="checkbox" checked disabled> <code>MusicService</code> (fachada sem JDA)</label></li>
   </ul>
 </section>
 
-<section id="phase-4" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 4 — UI no Discord (Components V2)</h3><span class="badge">pendente</span></div>
+<section id="phase-4" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 4 — UI no Discord (Components V2)</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> <code>PlayerPanel</code> + <code>PlayerPanelUpdater</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>/search</code> com select, "Tocar agora" e "Adicionar à playlist..."</label></li>
-    <li><label><input type="checkbox" disabled> <code>/queue</code> com paginação, remover e limpar</label></li>
-    <li><label><input type="checkbox" disabled> Comandos <code>/play</code>, <code>/player</code>, <code>/skip</code>, <code>/stop</code>, <code>/pause</code>, <code>/volume</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Painel do player Components V2 (Container/Section/Thumbnail/TextDisplay/Separator/ActionRow), auto-atualizado via <code>PlayerEvent</code> (debounce 750ms + progresso a cada 15s)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>/search</code> com botão ▶ por resultado e select "salvar em playlist" que abre Modal (Label + select de playlist + apelido)</label></li>
+    <li><label><input type="checkbox" checked disabled> <code>/queue</code> paginada com select de remover</label></li>
+    <li><label><input type="checkbox" checked disabled> Comandos <code>/play</code> (autocomplete: apelidos e YouTube), <code>/player</code>, <code>/skip</code>, <code>/stop</code>, <code>/pause</code>, <code>/volume</code>, <code>/kassino</code></label></li>
   </ul>
 </section>
 
-<section id="phase-5" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 5 — Playlists</h3><span class="badge">pendente</span></div>
+<section id="phase-5" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 5 — Playlists</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> Domínio: <code>Playlist</code>, <code>PlaylistTrack</code>, <code>PlaylistScope</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>PlaylistRepository</code> (porta) + <code>InMemoryPlaylistRepository</code></label></li>
-    <li><label><input type="checkbox" disabled> <code>PlaylistService</code> (criar, renomear, apagar, adicionar, apelidar, remover, mover, tocar)</label></li>
-    <li><label><input type="checkbox" disabled> Subcomandos <code>/playlist ...</code> com autocomplete</label></li>
-    <li><label><input type="checkbox" disabled> Avisos de prioridade música avulsa x playlist</label></li>
-    <li><label><input type="checkbox" disabled> Autocomplete do <code>/play</code> com músicas apelidadas</label></li>
+    <li><label><input type="checkbox" checked disabled> Domínio: <code>Playlist</code>, <code>PlaylistTrack</code>, <code>PlaylistScope</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>PlaylistRepository</code> (porta) + <code>InMemoryPlaylistRepository</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>PlaylistService</code> (criar, renomear, apagar, adicionar, apelidar, remover, mover, tocar)</label></li>
+    <li><label><input type="checkbox" checked disabled> 11 subcomandos <code>/playlist create|list|show|play|add|add-current|alias|remove|move|rename|delete</code> em classes separadas, autocomplete por id/nome</label></li>
+    <li><label><input type="checkbox" checked disabled> Avisos de prioridade música avulsa x playlist</label></li>
+    <li><label><input type="checkbox" checked disabled> Autocomplete do <code>/play</code> com músicas apelidadas</label></li>
   </ul>
 </section>
 
-<section id="phase-6" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 6 — Métricas</h3><span class="badge">pendente</span></div>
+<section id="phase-6" class="card phase" data-status="concluída">
+  <div class="phase-head"><h3>Fase 6 — Métricas</h3><span class="badge">concluída</span></div>
   <ul class="check">
-    <li><label><input type="checkbox" disabled> <code>MusicMetrics</code> e <code>CountingHttpEntity</code></label></li>
-    <li><label><input type="checkbox" disabled> Bytes baixados por source e bytes enviados por guild</label></li>
-    <li><label><input type="checkbox" disabled> KB por música, tracks tocadas/falhas, tempo ouvido</label></li>
-    <li><label><input type="checkbox" disabled> Timers de comandos, contadores de componentes e buscas</label></li>
-    <li><label><input type="checkbox" disabled> Gauges: players ativos, tamanho da fila, total de playlists</label></li>
-    <li><label><input type="checkbox" disabled> Exposição em <code>/actuator/prometheus</code></label></li>
+    <li><label><input type="checkbox" checked disabled> <code>MusicMetrics</code> e <code>CountingHttpEntity</code></label></li>
+    <li><label><input type="checkbox" checked disabled> Bytes baixados por source e bytes enviados por guild</label></li>
+    <li><label><input type="checkbox" checked disabled> KB por música, tracks tocadas/falhas, tempo ouvido</label></li>
+    <li><label><input type="checkbox" checked disabled> Timers de comandos, contadores de componentes e buscas</label></li>
+    <li><label><input type="checkbox" checked disabled> Gauges: players ativos, tamanho da fila, total de playlists</label></li>
+    <li><label><input type="checkbox" checked disabled> Exposição em <code>/actuator/prometheus</code></label></li>
   </ul>
 </section>
 
-<section id="phase-7" class="card phase" data-status="pendente">
-  <div class="phase-head"><h3>Fase 7 — Painel admin</h3><span class="badge">pendente</span></div>
+<section id="phase-7" class="card phase" data-status="em andamento">
+  <div class="phase-head"><h3>Fase 7 — Painel admin</h3><span class="badge">em andamento</span></div>
   <ul class="check">
     <li><label><input type="checkbox" disabled> <code>SecurityConfiguration</code> (login simples, CSRF ativo)</label></li>
     <li><label><input type="checkbox" disabled> <code>/admin</code> com cards por servidor (polling HTMX 2s) e resumo de métricas</label></li>
@@ -284,7 +284,8 @@ flowchart LR
 <h2>Pontos para você responder</h2>
 <div class="card questions" id="questions">
   <ul id="questions-list">
-    <li class="none">Nenhum por enquanto</li>
+    <li><strong>(não bloqueante)</strong> Descrições dos comandos ficaram em português como padrão (só os NOMES têm tradução pt-BR). Clientes em inglês veem /play com descrição em PT. Quer descrições em inglês + tradução?</li>
+    <li><strong>(não bloqueante)</strong> Respostas de /play, /skip, /stop são públicas no canal (social); erros e listas são efêmeros. Ok?</li>
   </ul>
 </div>
 
@@ -311,6 +312,13 @@ flowchart LR
     <li><time>2026-10-03</time> Métrica de download validada: contador HTTP registrou ~1,19 MB em 4 carregamentos de teste.</li>
     <li><time>2026-10-03</time> youtube-source v2 não preenche artworkUrl; thumbnail derivada de i.ytimg.com/vi/&lt;id&gt;/hqdefault.jpg.</li>
     <li><time>2026-10-03</time> Commit: build + núcleo de música.</li>
+    <li><time>2026-10-03</time> Fase 2 concluída: SlashCommand / Subcommand / CommandGroup / ComponentHandler; InteractionRouter único; CommandRegistrar com updateCommands() em lote (corrige o bug de subcomandos sobrescritos) + localização pt-BR dos nomes.</li>
+    <li><time>2026-10-03</time> Fase 3 concluída: JdaVoiceGateway (JDAVE/DAVE, selfDeafened), AudioPlayerSendHandler conta bytes enviados; bugs 3–6 resolvidos pelo redesenho.</li>
+    <li><time>2026-10-03</time> Fase 4 concluída: painel do player Components V2 auto-atualizável, /search, /queue, /play (autocomplete), /player, /skip, /stop, /pause, /volume, /kassino.</li>
+    <li><time>2026-10-03</time> Fase 5 concluída: Playlist (escopo GUILD padrão ou GLOBAL), PlaylistTrack com apelido, PlaylistRepository (porta) + InMemoryPlaylistRepository, PlaylistService, 11 subcomandos /playlist, avisos de prioridade.</li>
+    <li><time>2026-10-03</time> Fase 6 concluída: métricas sabadaco.audio.downloaded.bytes, audio.sent.bytes, track.bytes, track.listened, tracks.played/failed, players.active, queue.size, playlists.total, commands, components, searches em /actuator/prometheus.</li>
+    <li><time>2026-10-03</time> Fase 7 iniciada (painel admin).</li>
+    <li><time>2026-10-03</time> Commit: comandos plugáveis, UI Components V2, playlists e métricas.</li>
   </ol>
 </div>
 

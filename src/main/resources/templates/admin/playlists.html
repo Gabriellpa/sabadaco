@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head th:replace="~{admin/fragments :: head('Playlists')}"></head>
+<body>
+<nav th:replace="~{admin/fragments :: nav}"></nav>
+<main>
+    <div th:replace="~{admin/fragments :: flash}"></div>
+    <h1>Playlists</h1>
+
+    <datalist id="users">
+        <option th:each="user : ${users}" th:value="${user.key}" th:text="${user.value}"></option>
+    </datalist>
+
+    <form class="card filters" th:action="@{/admin/playlists}" method="get">
+        <label>Dono (id) <input name="owner" list="users" th:value="${owner}" inputmode="numeric"></label>
+        <label>Servidor
+            <select name="guild">
+                <option value="">Todos</option>
+                <option th:each="g : ${guilds}" th:value="${g.id()}" th:text="${g.name()}" th:selected="${guild == g.id()}">servidor</option>
+            </select>
+        </label>
+        <button>Filtrar</button>
+        <a th:href="@{/admin/playlists}">Limpar</a>
+    </form>
+
+    <div class="card">
+        <table>
+            <thead><tr><th>Nome</th><th>Dono</th><th>Escopo</th><th>Servidor</th><th>Músicas</th></tr></thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(playlists)}"><td colspan="5" class="muted">Nenhuma playlist.</td></tr>
+            <tr th:each="playlist : ${playlists}">
+                <td><a th:href="@{/admin/playlists/{id}(id=${playlist.id()})}" th:text="${playlist.name()}">nome</a></td>
+                <td th:text="${@views.user(playlist.ownerId())}">dono</td>
+                <td><span class="badge" th:text="${playlist.scope().name() == 'GLOBAL'} ? '🌐 global' : '🏠 servidor'">escopo</span></td>
+                <td th:text="${@views.guild(playlist.guildId())}">servidor</td>
+                <td th:text="${playlist.tracks().size()}">0</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <form class="card" th:action="@{/admin/playlists}" method="post">
+        <h2>Nova playlist</h2>
+        <div class="grid two">
+            <label>Dono (id do usuário) <input name="ownerId" list="users" required inputmode="numeric"></label>
+            <label>Nome <input name="name" required maxlength="50"></label>
+            <label>Escopo
+                <select name="scope">
+                    <option value="GUILD">Só no servidor</option>
+                    <option value="GLOBAL">Global</option>
+                </select>
+            </label>
+            <label>Servidor (para escopo servidor)
+                <select name="guildId">
+                    <option value="">—</option>
+                    <option th:each="g : ${guilds}" th:value="${g.id()}" th:text="${g.name()}">servidor</option>
+                </select>
+            </label>
+        </div>
+        <button class="primary">Criar</button>
+    </form>
+</main>
+</body>
+</html>
