@@ -107,7 +107,7 @@ Os princípios que guiaram as escolhas:
 
 | Classe | Papel |
 |---|---|
-| `SecurityConfiguration` | Login por formulário (painel) + basic auth (Prometheus). Usuário em memória vindo do ambiente. |
+| `SecurityConfiguration` | Login por formulário (painel). `/actuator/prometheus` aberto só na porta de gerenciamento (8081). Usuário em memória vindo do ambiente. |
 | `DashboardController`, `GuildController`, `PlaylistAdminController` | Telas e ações. |
 | `AdminViews` | Monta os dados das telas e expõe helpers de formatação para o Thymeleaf (`@views.duration(...)`). |
 | `PlayerControls` | Ações de player compartilhadas pelas telas. |
@@ -601,7 +601,7 @@ Duas limitações conscientes:
 - **CSRF:** o token vai numa `<meta>`, e um listener `htmx:configRequest` (em `admin.js`) o coloca em toda requisição HTMX. Os formulários com `th:action` recebem o campo automaticamente.
 - **Erros:** `AdminErrorHandler` responde com cabeçalhos `HX-Retarget: #toast` e `HX-Reswap: innerHTML`: a mensagem aparece no toast em vez de substituir o conteúdo. Fora do HTMX, vira mensagem *flash* e volta para a página anterior, aceitando só caminhos `/admin` para evitar *open redirect*.
 - **Playlists usam POST + redirect (PRG):** recarregar a página não reenvia o formulário.
-- **Segurança:** form login para o navegador, basic auth para o Prometheus. Sem `ADMIN_PASSWORD`, uma senha aleatória é gerada e logada, nunca uma senha padrão fixa.
+- **Segurança:** form login para o navegador; o Prometheus coleta sem senha pela porta 8081, que não sai do cluster. Sem `ADMIN_PASSWORD`, uma senha aleatória é gerada e logada, nunca uma senha padrão fixa.
 - O admin age **em nome do dono** da playlist (`owner(id)`), reaproveitando as mesmas regras do `PlaylistService`.
 
 ### 8.2 Visual: temas, barra lateral e animações
@@ -609,7 +609,7 @@ Duas limitações conscientes:
 - **Telas** em `templates/admin/` (`fragments`, `dashboard`, `guild`, `playlists`, `playlist`, `metrics`) e estilos em `static/css/admin.css`. Todas usam os mesmos fragmentos (`head`, `sidebar`, `flash`, `listenBar`); a barra lateral vira barra superior abaixo de ~860 px.
 - **Temas:** "creme" (claro, bege bem clarinho) e escuro, definidos como **variáveis CSS** (tokens de cor). A escolha do botão **Tema** fica no `localStorage` (`sabadaco-theme`); um script mínimo no `<head>` a aplica **antes de pintar**, para a página não piscar no tema errado. Sem escolha salva, vale `prefers-color-scheme`. O JS dispara o evento `themechange`, e os gráficos releem as cores na hora.
 - **Animações** (entrada das páginas, hover dos cartões, indicador das abas com mola, pop-in dos painéis, KPIs contando com *easeOutBack*, barras nascendo) ficam todas atrás de `prefers-reduced-motion`: quem pede menos movimento não vê nenhuma.
-- Fonte Inter (Google Fonts) e Chart.js (cdnjs) vêm de CDN **para o navegador**; o servidor não depende de internet para isso, mas o navegador do admin sim para ver os gráficos.
+- Fonte Geist (Google Fonts) e Chart.js (cdnjs) vêm de CDN **para o navegador**; o servidor não depende de internet para isso, mas o navegador do admin sim para ver os gráficos.
 
 ### 8.3 Aba Métricas: de onde vêm os números
 
@@ -637,7 +637,7 @@ flowchart LR
 | `static/js/metrics.js` | Busca a API a cada 2 s, mantém as fotos em memória, desenha com Chart.js. Toda a aba nasce da constante `GROUPS`. |
 
 Decisões:
-- **Histórico no servidor, em memória:** a página abre já preenchida (até 15 min) e a coleta continua com a aba fechada ou pausada. Não substitui o Prometheus: para histórico longo, alertas e retenção use o `/actuator/prometheus` com Grafana. Reiniciar o bot zera o histórico.
+- **Histórico no servidor, em memória:** a página abre já preenchida (até 15 min) e a coleta continua com a aba fechada ou pausada. Não substitui o Prometheus: para histórico longo, alertas e retenção use o `/actuator/prometheus` (porta 8081) com Grafana; o dashboard está no repo `infra-apps`. Reiniciar o bot zera o histórico.
 - **Taxas calculadas no sampler, não no navegador:** o navegador recebe números prontos e não precisa lembrar do total anterior (nem se perde se você recarregar).
 - **JSON incremental (`since`)** evita reenviar 15 min de dados a cada 2 s; só o resumo (pequeno) vai inteiro.
 - **Percentis numa janela móvel** (`distributionStatisticExpiry`): p95 e p99 refletem os últimos 2 min, não o tempo de vida do processo, que esconderia um problema recente.

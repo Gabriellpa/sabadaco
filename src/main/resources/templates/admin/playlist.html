@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
 <head th:replace="~{admin/fragments :: head(${playlist.name()})}"></head>
-<body>
-<div class="app" hx-ext="morph">
+<body hx-ext="morph">
+<div class="app">
     <aside th:replace="~{admin/fragments :: sidebar}"></aside>
     <div class="main">
         <header class="topbar">
             <div>
-                <p class="small"><a th:href="@{/admin/playlists(owner=${playlist.ownerId()})}">← Playlists de <span th:text="${@views.user(playlist.ownerId())}"></span></a></p>
+                <p class="small"><a th:href="@{/admin/playlists(owner=${playlist.ownerId()})}">← Playlists de <span th:text="${@views.owner(playlist)}"></span></a></p>
                 <h1 th:text="${playlist.name()}">Playlist</h1>
                 <p class="muted small"
-                   th:text="|${playlist.scope().name() == 'GLOBAL' ? '🌐 global' : '🏠 ' + @views.guild(playlist.guildId())} · ${playlist.tracks().size()} música(s) · ${@views.duration(playlist.totalDurationMs())}|"></p>
+                   th:text="|${@views.scope(playlist)}${playlist.guildId() != null ? ' · ' + @views.guild(playlist.guildId()) : ''} · ${playlist.tracks().size()} música(s) · ${@views.duration(playlist.totalDurationMs())}|"></p>
             </div>
         </header>
         <main class="content">

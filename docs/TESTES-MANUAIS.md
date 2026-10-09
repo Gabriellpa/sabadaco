@@ -102,7 +102,7 @@ Para mexer no visual do admin (temas, abas, gráficos) sem token nem servidor, r
 
 Isso sobe o app com o JDA **simulado**, playlists de exemplo e **tráfego simulado** nos gráficos; entre em http://localhost:8080 com usuário `admin` e senha `admin`. Se a porta 8080 estiver ocupada (por exemplo, pelo bot em Docker), use `SERVER_PORT=8081 ./gradlew bootTestRun` e abra http://localhost:8081. Neste modo **não há áudio real**: os testes de "ouvir" (grupo P) e os de gráficos reagindo a comandos precisam do bot de verdade.
 
-> O painel carrega a fonte Inter (Google Fonts) e a biblioteca de gráficos Chart.js (cdnjs). Para ver o visual completo, o **navegador** precisa de internet; sem ela o painel abre com a fonte padrão, mas a aba Métricas fica sem gráficos.
+> O painel carrega a fonte Geist (Google Fonts) e a biblioteca de gráficos Chart.js (cdnjs). Para ver o visual completo, o **navegador** precisa de internet; sem ela o painel abre com a fonte padrão, mas a aba Métricas fica sem gráficos.
 
 ---
 
@@ -875,7 +875,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 - **Esperado:**
   - Passo 1: redireciona para a tela de login.
   - Passo 2: não entra (volta ao login com erro).
-  - Passo 3: abre a página **Servidores**, com a barra lateral `🎶 Sabadaço · Servidores · Métricas · Playlists · Prometheus · Tema · Sair`.
+  - Passo 3: abre a página **Servidores**, com a barra lateral `🎶 Sabadaço · Servidores · Métricas · Playlists · Tema · Sair`.
   - Passo 4: volta à tela de login e `/admin` volta a pedir senha.
 - [ ] passou
 
@@ -1050,16 +1050,16 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 
 ## K. Métricas
 
-### T71. `/actuator/prometheus` pede senha
+### T71. `/actuator/prometheus` só na porta de gerenciamento
 
-- **Objetivo:** só quem tem as credenciais lê as métricas.
+- **Objetivo:** o Prometheus coleta pela porta 8081 (só dentro do cluster) e o painel na 8080 segue com login.
 - **Passos:**
-  1. Abra http://localhost:8080/actuator/prometheus sem login (janela anônima) ou rode `curl -i http://localhost:8080/actuator/prometheus`.
-  2. Rode `curl -u admin:SUA_SENHA http://localhost:8080/actuator/prometheus` (troque usuário e senha pelos de `ADMIN_USER`/`ADMIN_PASSWORD`).
-  3. Abra http://localhost:8080/actuator/health sem login.
+  1. Rode `curl -i http://localhost:8081/actuator/prometheus`.
+  2. Rode `curl -i http://localhost:8081/actuator/metrics`.
+  3. Abra http://localhost:8081/actuator/health sem login.
 - **Esperado:**
-  - Passo 1: sem autenticação, `401`/redirecionamento ao login.
-  - Passo 2: texto de métricas do Prometheus.
+  - Passo 1: `200` com o texto de métricas, sem pedir senha.
+  - Passo 2: `401` (só o `/actuator/prometheus` fica aberto).
   - Passo 3: `{"status":"UP"}` sem pedir senha.
 - [ ] passou
 
@@ -1068,7 +1068,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 - **Objetivo:** as métricas do bot são geradas e crescem com o uso.
 - **Pré-condição:** já tocou algumas músicas, pulou uma, fez buscas e comandos.
 - **Passos:**
-  1. `curl -s -u admin:SUA_SENHA http://localhost:8080/actuator/prometheus | grep sabadaco_`
+  1. `curl -s http://localhost:8081/actuator/prometheus | grep sabadaco_`
   2. Toque e pule mais uma música, repita o comando e compare.
 - **Esperado:**
   - Aparecem séries com o prefixo `sabadaco_` (o Prometheus troca `.` por `_` e acrescenta sufixos como `_total` e `_seconds`):
@@ -1197,14 +1197,12 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 
 - **Objetivo:** o menu e o "jeito" do painel.
 - **Passos:**
-  1. Olhe a barra lateral: **Servidores**, **Métricas**, **Playlists**, **Prometheus**, **Tema**, **Sair**.
+  1. Olhe a barra lateral: **Servidores**, **Métricas**, **Playlists**, **Tema**, **Sair**.
   2. Clique em cada item de página. Observe a animação ao abrir cada página.
   3. Passe o mouse sobre os cartões (KPIs e servidores).
-  4. Clique em **Prometheus**.
 - **Esperado:**
   - O item da página atual aparece destacado no menu.
   - Cada página entra com uma animação suave; os cartões **sobem um pouco** ao passar o mouse; os números dos KPIs **contam até o valor** ao abrir.
-  - **Prometheus** abre `/actuator/prometheus` em outra aba (pede usuário e senha, como no T71).
   - **Sair** encerra a sessão (T57).
 - [ ] passou
 
@@ -1473,7 +1471,7 @@ Preencha **OK**, **FALHOU** ou **N/A** e anote observações. Data do teste: ___
 | T68 | Admin | Mover e remover música | |
 | T69 | Admin | Apagar playlist | |
 | T70 | Admin | Erros (toast e mensagem) | |
-| T71 | Métricas | `/actuator/prometheus` com senha | |
+| T71 | Métricas | `/actuator/prometheus` na porta 8081 | |
 | T72 | Métricas | Métricas `sabadaco_*` | |
 | T73 | Docker | Restart perde playlists (esperado) | |
 | T74 | Ajuda | `/help` lista por categoria | |

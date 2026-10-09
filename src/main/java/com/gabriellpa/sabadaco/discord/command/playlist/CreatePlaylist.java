@@ -30,7 +30,8 @@ class CreatePlaylist extends PlaylistSubcommand {
                         new OptionData(OptionType.STRING, "name", "Playlist name", true).setMaxLength(50),
                         new OptionData(OptionType.STRING, "scope", "Where it applies (default: this server only)", false)
                                 .addChoice("This server only", PlaylistScope.GUILD.name())
-                                .addChoice("Global (all servers)", PlaylistScope.GLOBAL.name()));
+                                .addChoice("Global (all servers)", PlaylistScope.GLOBAL.name())
+                                .addChoice("Owned by the server (admin)", PlaylistScope.SERVER.name()));
     }
 
     @Override
@@ -40,7 +41,11 @@ class CreatePlaylist extends PlaylistSubcommand {
                 Interactions.requireString(event, "name"), scope == null ? null : PlaylistScope.valueOf(scope));
         event.reply("📜 Playlist **%s** criada (%s). Adicione músicas com `/playlist add` ou pelo 💾 da `/search`."
                         .formatted(Format.escape(playlist.name()),
-                                playlist.scope() == PlaylistScope.GLOBAL ? "global" : "só neste servidor"))
+                                switch (playlist.scope()) {
+                                    case GLOBAL -> "global";
+                                    case SERVER -> "do servidor: todo mundo daqui vê e toca";
+                                    case GUILD -> "só neste servidor";
+                                }))
                 .setEphemeral(true).queue();
     }
 
@@ -49,7 +54,9 @@ class CreatePlaylist extends PlaylistSubcommand {
         return CommandHelp.of(Category.PLAYLIST, "Cria uma playlist sua.",
                 List.of(
                         example("/playlist create Clássicos do Sabadaço", "Cria só para este servidor (padrão)."),
-                        example("/playlist create Favoritas scope: Global", "Cria uma playlist que vale em todos os servidores.")),
+                        example("/playlist create Favoritas scope: Global", "Cria uma playlist que vale em todos os servidores."),
+                        example("/playlist create Os quatro cavaleiros do apocalipse scope: Do servidor (admin)",
+                                "Só o admin do bot: a playlist é do servidor, todo mundo daqui vê e toca.")),
                 "O nome não pode se repetir entre as suas playlists do mesmo escopo.");
     }
 }

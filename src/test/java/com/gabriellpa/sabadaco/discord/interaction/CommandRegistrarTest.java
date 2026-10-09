@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.discord.interaction;
 
+import com.gabriellpa.sabadaco.discord.DiscordDirectory;
 import com.gabriellpa.sabadaco.discord.DiscordProperties;
 import com.gabriellpa.sabadaco.discord.command.PlayCommand;
 import com.gabriellpa.sabadaco.discord.ui.PlayerPanelUpdater;
@@ -48,6 +49,8 @@ class CommandRegistrarTest {
     SearchService searchService;
     @MockitoBean
     PlaylistService playlistService;
+    @MockitoBean
+    DiscordDirectory directory;
     @MockitoBean
     PlayerPanelUpdater panels;
 

@@ -12,13 +12,14 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" th:href="@{/css/admin.css}">
     <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
+    <!-- morph: o polling atualiza os cards no lugar em vez de recriá-los (sem piscar, sem recarregar capas) -->
     <script th:src="@{/webjars/idiomorph/dist/idiomorph-ext.min.js}" defer></script>
     <script th:src="@{/js/admin.js}" defer></script>
 </head>
-<body>
+<body hx-ext="morph">
 
 <aside th:fragment="sidebar" class="sidebar">
     <a class="brand" th:href="@{/admin}"><span class="brand-mark">🎶</span><span>Sabadaço</span></a>
@@ -28,8 +29,6 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Métricas</span></a>
     <a class="nav-link" th:href="@{/admin/playlists}">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg><span>Playlists</span></a>
-    <a class="nav-link" th:href="@{/actuator/prometheus}" target="_blank">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Prometheus</span></a>
     <div class="sidebar-footer">
         <button type="button" class="link theme-toggle" data-theme-toggle title="Alternar tema">
             <svg class="icon moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -68,12 +67,13 @@
 
 <!-- Cards de todos os servidores (dashboard), atualizados a cada 2s -->
 <section id="players" th:fragment="players" class="grid"
-         th:hx-get="@{/admin/players}" hx-trigger="every 2s" hx-swap="morph">
+         th:hx-get="@{/admin/players}" hx-trigger="every 2s [!document.hidden]" hx-swap="morph">
     <div class="card empty" th:if="${#lists.isEmpty(cards)}">
         <span class="big-emoji">📡</span>
         <span>O bot não está em nenhum servidor (ou ainda está conectando).</span>
     </div>
-    <article class="card hoverable player-card" th:each="card : ${cards}">
+    <article class="card hoverable player-card" th:each="card : ${cards}"
+             th:style="${card.playing()} ? ${@views.artStyle(card.player().current().track().artworkUrl())}">
         <header class="row spread">
             <a th:href="@{/admin/guilds/{id}(id=${card.id()})}"><h2 th:text="${card.name()}">Servidor</h2></a>
             <span class="badge" th:classappend="${card.playing() and !card.player().paused()} ? 'live'"
@@ -118,12 +118,13 @@
 
 <!-- Estado de um servidor (player + fila), atualizado a cada 2s -->
 <section id="state" th:fragment="guildState" class="stack"
-         th:hx-get="@{/admin/guilds/{id}/state(id=${card.id()})}" hx-trigger="every 2s" hx-swap="morph"
+         th:hx-get="@{/admin/guilds/{id}/state(id=${card.id()})}" hx-trigger="every 2s [!document.hidden]" hx-swap="morph"
          th:with="p=${card.player()}">
     <div class="card empty" th:if="${p == null or !p.playing()}">
         <span class="big-emoji">💤</span><span>Nada tocando neste servidor.</span>
     </div>
-    <div class="card player-card" th:if="${p != null and p.playing()}" th:with="t=${p.current().track()}">
+    <div class="card player-card" th:if="${p != null and p.playing()}" th:with="t=${p.current().track()}"
+         th:style="${@views.artStyle(t.artworkUrl())}">
         <div class="now big">
             <img class="cover" th:if="${t.artworkUrl()}" th:src="${t.artworkUrl()}" alt="">
             <div>
