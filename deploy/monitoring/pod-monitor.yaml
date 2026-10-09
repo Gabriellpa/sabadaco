@@ -1,0 +1,23 @@
+# Coleta /actuator/prometheus do bot pela porta de gerenciamento (8081, sem login, não exposta fora do cluster).
+# PodMonitor e não ServiceMonitor: o Service do bot é criado pela plataforma e só tem a porta 8080.
+# A label release=monitoring é obrigatória: é o seletor do Prometheus do kube-prometheus-stack.
+#
+# O container só declara a porta 8080 (spec da plataforma), e o Prometheus só descobre portas declaradas.
+# Por isso não há filtro de porta: o alvo da 8080 é reescrito para <IP do pod>:8081.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: sabadaco-bot
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: sabadaco-bot
+  podMetricsEndpoints:
+    - path: /actuator/prometheus
+      interval: 30s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_ip]
+          targetLabel: __address__
+          replacement: "$1:8081"

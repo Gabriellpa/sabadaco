@@ -1,8 +1,12 @@
 package com.gabriellpa.sabadaco.playlist;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.mongodb.MongoMetricsCommandListener;
+import io.micrometer.core.instrument.binder.mongodb.MongoMetricsConnectionPoolListener;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -18,9 +22,15 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 @ConditionalOnProperty(name = "sabadaco.storage.type", havingValue = "mongo")
 class MongoStorageConfiguration {
 
+    /** Com métricas do driver: {@code mongodb.driver.commands} (latência por comando) e {@code mongodb.driver.pool.*}. */
     @Bean(destroyMethod = "close")
-    MongoClient mongoClient(@Value("${sabadaco.storage.mongo-uri}") String uri) {
-        return MongoClients.create(uri);
+    MongoClient mongoClient(@Value("${sabadaco.storage.mongo-uri}") String uri, MeterRegistry registry) {
+        var settings = MongoClientSettings.builder()
+                .applyConnectionString(new ConnectionString(uri))
+                .addCommandListener(new MongoMetricsCommandListener(registry))
+                .applyToConnectionPoolSettings(pool -> pool.addConnectionPoolListener(new MongoMetricsConnectionPoolListener(registry)))
+                .build();
+        return MongoClients.create(settings);
     }
 
     @Bean

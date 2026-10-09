@@ -1,0 +1,17 @@
+# Métricas do bot no Prometheus/Grafana do kube-prometheus-stack (ns monitoring).
+#   kubectl apply -k deploy/monitoring
+# O dashboard vira um ConfigMap com a label grafana_dashboard=1; o sidecar do Grafana o carrega sozinho.
+# Para mudar o dashboard, edite build-dashboard.py e rode-o de novo.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: prd
+resources:
+  - pod-monitor.yaml
+configMapGenerator:
+  - name: sabadaco-grafana-dashboard
+    files:
+      - sabadaco-dashboard.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"

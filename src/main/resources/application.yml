@@ -32,6 +32,9 @@ sabadaco:
     password: ${ADMIN_PASSWORD:}
 
 management:
+  # Porta só para o cluster (Prometheus, probes): /actuator/prometheus sem login aqui; o painel fica na 8080.
+  server:
+    port: ${MANAGEMENT_PORT:8081}
   endpoints:
     web:
       exposure:
@@ -39,3 +42,8 @@ management:
   metrics:
     tags:
       application: sabadaco
+    distribution:
+      # Poucos buckets fixos: dá p95 por comando no Grafana sem explodir o número de séries
+      slo:
+        sabadaco.commands: 100ms,250ms,500ms,1s,2s,5s
+        sabadaco.components: 100ms,250ms,500ms,1s,2s,5s
