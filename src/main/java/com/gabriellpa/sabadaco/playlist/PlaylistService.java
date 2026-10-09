@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Regras das playlists. Toda operação de escrita exige o dono ({@code ownerId}); o painel admin
@@ -28,21 +30,36 @@ public class PlaylistService {
     private final PlaylistRepository repository;
     private final DiscordAdmins admins;
 
-    /** @param scope {@code null} = {@link PlaylistScope#GUILD} */
+    /** @param scope {@code null} = {@link PlaylistScope#GUILD}; {@link PlaylistScope#SERVER} só para admins */
     public synchronized Playlist create(long ownerId, long guildId, String name, PlaylistScope scope) {
         var effectiveScope = scope == null ? PlaylistScope.GUILD : scope;
+        if (effectiveScope == PlaylistScope.SERVER) {
+            if (!admins.isAdmin(ownerId)) {
+                throw new UserFacingException("Só o admin do bot cria playlists do servidor.");
+            }
+            return createForServer(guildId, name);
+        }
         var guild = effectiveScope == PlaylistScope.GUILD ? guildId : null;
         var cleanName = validName(name);
         ensureUniqueName(ownerId, effectiveScope, guild, cleanName, null);
         return repository.save(new Playlist(null, ownerId, effectiveScope, guild, cleanName, List.of()));
     }
 
-    /** Playlists que o usuário pode usar neste servidor: as do servidor + as globais dele. */
+    /** Playlist cujo dono é o servidor. Sem checagem de admin: quem chama já é admin (Discord ou painel web). */
+    public synchronized Playlist createForServer(long guildId, String name) {
+        var cleanName = validName(name);
+        ensureUniqueName(guildId, PlaylistScope.SERVER, guildId, cleanName, null);
+        return repository.save(new Playlist(null, guildId, PlaylistScope.SERVER, guildId, cleanName, List.of()));
+    }
+
+    /**
+     * Playlists que o usuário pode usar neste servidor: as dele deste servidor, as globais dele e as do
+     * próprio servidor.
+     */
     public List<Playlist> visibleTo(long ownerId, long guildId) {
-        return repository.findByOwner(ownerId).stream()
-                .filter(playlist -> playlist.visibleIn(guildId))
-                .sorted(ORDER)
-                .toList();
+        var own = repository.findByOwner(ownerId).stream().filter(playlist -> playlist.visibleIn(guildId));
+        var server = repository.findByOwner(guildId).stream().filter(playlist -> playlist.scope() == PlaylistScope.SERVER);
+        return Stream.concat(own, server).sorted(ORDER).toList();
     }
 
     /**
@@ -54,8 +71,9 @@ public class PlaylistService {
         if (!admins.isAdmin(userId)) {
             return own;
         }
+        var ownIds = own.stream().map(Playlist::id).collect(Collectors.toSet());
         var others = repository.findAll().stream()
-                .filter(playlist -> playlist.ownerId() != userId)
+                .filter(playlist -> !ownIds.contains(playlist.id()) && playlist.ownerId() != userId)
                 .sorted(Comparator.comparingLong(Playlist::ownerId).thenComparing(ORDER))
                 .toList();
         var result = new ArrayList<>(own);
@@ -63,10 +81,11 @@ public class PlaylistService {
         return result;
     }
 
-    /** Playlist que o usuário pode ver e tocar: a dele ou, para admins, qualquer uma. */
-    public Playlist playable(long userId, String id) {
+    /** Playlist que o usuário pode ver e tocar: a dele, a do servidor em que ele está ou, para admins, qualquer uma. */
+    public Playlist playable(long userId, long guildId, String id) {
         var playlist = get(id);
-        if (playlist.ownerId() != userId && !admins.isAdmin(userId)) {
+        boolean serverOwned = playlist.scope() == PlaylistScope.SERVER && playlist.ownerId() == guildId;
+        if (playlist.ownerId() != userId && !serverOwned && !admins.isAdmin(userId)) {
             throw new UserFacingException("Essa playlist não é sua.");
         }
         return playlist;
@@ -89,18 +108,25 @@ public class PlaylistService {
         return repository.findById(id).orElseThrow(() -> new UserFacingException("Playlist não encontrada."));
     }
 
+    /** Playlist que o usuário pode alterar: a dele ou, para admins, as do servidor. */
     public Playlist owned(long ownerId, String id) {
         var playlist = get(id);
-        if (playlist.ownerId() != ownerId) {
-            throw new UserFacingException("Essa playlist não é sua.");
+        if (playlist.ownerId() == ownerId) {
+            return playlist;
         }
-        return playlist;
+        if (playlist.scope() == PlaylistScope.SERVER) {
+            if (admins.isAdmin(ownerId)) {
+                return playlist;
+            }
+            throw new UserFacingException("Só o admin do bot altera playlists do servidor.");
+        }
+        throw new UserFacingException("Essa playlist não é sua.");
     }
 
     public synchronized Playlist rename(long ownerId, String id, String newName) {
         var playlist = owned(ownerId, id);
         var cleanName = validName(newName);
-        ensureUniqueName(ownerId, playlist.scope(), playlist.guildId(), cleanName, id);
+        ensureUniqueName(playlist.ownerId(), playlist.scope(), playlist.guildId(), cleanName, id);
         return repository.save(playlist.withName(cleanName));
     }
 

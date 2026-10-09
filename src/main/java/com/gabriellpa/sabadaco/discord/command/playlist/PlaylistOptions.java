@@ -5,6 +5,7 @@ import com.gabriellpa.sabadaco.discord.DiscordDirectory;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.playlist.Playlist;
+import com.gabriellpa.sabadaco.playlist.PlaylistScope;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import lombok.RequiredArgsConstructor;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -92,7 +93,10 @@ public class PlaylistOptions {
     }
 
     private String label(Playlist playlist, long userId) {
-        return playlist.ownerId() == userId ? playlist.label() : playlist.label() + " · de " + directory.userName(playlist.ownerId());
+        if (playlist.ownerId() == userId || playlist.scope() == PlaylistScope.SERVER) {
+            return playlist.label();
+        }
+        return playlist.label() + " · de " + directory.userName(playlist.ownerId());
     }
 
     private List<Playlist> visible(Interaction event) {

@@ -5,6 +5,7 @@ import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.ui.PlaylistView;
+import com.gabriellpa.sabadaco.playlist.PlaylistScope;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
@@ -38,7 +39,9 @@ class ListPlaylists extends PlaylistSubcommand {
             var others = playlists.browsableBy(userId, Interactions.guildId(event)).stream()
                     .filter(playlist -> playlist.ownerId() != userId)
                     .toList();
-            text += PlaylistView.othersForAdmin(others, directory::userName);
+            text += PlaylistView.othersForAdmin(others, playlist -> playlist.scope() == PlaylistScope.SERVER
+                    ? "servidor " + directory.guildName(playlist.ownerId())
+                    : directory.userName(playlist.ownerId()));
         }
         event.reply(text).setEphemeral(true).queue();
     }

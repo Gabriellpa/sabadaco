@@ -3,9 +3,11 @@ package com.gabriellpa.sabadaco.playlist;
 import java.util.List;
 
 /**
- * Playlist sempre pertence a um usuário. Escopo {@link PlaylistScope#GUILD} vale só no servidor
- * em que foi criada; {@link PlaylistScope#GLOBAL} vale em qualquer servidor.
+ * Playlist pertence a um usuário ou, no escopo {@link PlaylistScope#SERVER}, ao servidor.
+ * {@link PlaylistScope#GUILD} vale só no servidor em que foi criada; {@link PlaylistScope#GLOBAL} vale
+ * em qualquer servidor.
  *
+ * @param ownerId usuário dono, ou o próprio servidor no escopo {@link PlaylistScope#SERVER}
  * @param guildId servidor da playlist ({@code null} quando global)
  */
 public record Playlist(String id, long ownerId, PlaylistScope scope, Long guildId, String name, List<PlaylistTrack> tracks) {
@@ -28,7 +30,11 @@ public record Playlist(String id, long ownerId, PlaylistScope scope, Long guildI
 
     /** Nome com indicação de escopo, para listas e autocomplete. */
     public String label() {
-        return scope == PlaylistScope.GLOBAL ? name + " (global)" : name;
+        return switch (scope) {
+            case GLOBAL -> name + " (global)";
+            case SERVER -> name + " (do servidor)";
+            case GUILD -> name;
+        };
     }
 
     public long totalDurationMs() {

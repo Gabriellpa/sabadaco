@@ -5,6 +5,8 @@ import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.music.LoopMode;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.PlayerSnapshot;
+import com.gabriellpa.sabadaco.playlist.Playlist;
+import com.gabriellpa.sabadaco.playlist.PlaylistScope;
 import com.gabriellpa.sabadaco.discord.ui.PlayerPanel;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
@@ -72,6 +74,21 @@ public class AdminViews {
 
     public String user(long userId) {
         return userId == 0 ? "painel admin" : directory.userName(userId);
+    }
+
+    /** Dono para exibição: a pessoa ou, nas playlists do servidor, o próprio servidor. */
+    public String owner(Playlist playlist) {
+        return playlist.scope() == PlaylistScope.SERVER
+                ? "🏛️ " + directory.guildName(playlist.ownerId())
+                : user(playlist.ownerId());
+    }
+
+    public String scope(Playlist playlist) {
+        return switch (playlist.scope()) {
+            case GLOBAL -> "🌐 global";
+            case SERVER -> "🏛️ do servidor";
+            case GUILD -> "🏠 servidor";
+        };
     }
 
     public String guild(Long guildId) {

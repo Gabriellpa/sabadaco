@@ -98,7 +98,7 @@ class PlaylistServiceTest {
         service.create(ALICE, GUILD_A, "Pagode", PlaylistScope.GLOBAL);
 
         assertThat(service.browsableBy(ADMIN, GUILD_A)).extracting(Playlist::id).startsWith(mine.id()).hasSize(3);
-        assertThat(service.playable(ADMIN, bobs.id())).isEqualTo(bobs);
+        assertThat(service.playable(ADMIN, GUILD_A, bobs.id())).isEqualTo(bobs);
         assertThatThrownBy(() -> service.rename(ADMIN, bobs.id(), "Meu agora")).isInstanceOf(UserFacingException.class);
     }
 
@@ -108,6 +108,45 @@ class PlaylistServiceTest {
         var bobs = service.create(BOB, GUILD_A, "Rock", null);
 
         assertThat(service.browsableBy(ALICE, GUILD_A)).extracting(Playlist::name).containsExactly("Pagode");
-        assertThatThrownBy(() -> service.playable(ALICE, bobs.id())).isInstanceOf(UserFacingException.class);
+        assertThatThrownBy(() -> service.playable(ALICE, GUILD_A, bobs.id())).isInstanceOf(UserFacingException.class);
+    }
+
+    @Test
+    void onlyAdminCreatesServerPlaylists() {
+        assertThatThrownBy(() -> service.create(ALICE, GUILD_A, "Os quatro cavaleiros do apocalipse", PlaylistScope.SERVER))
+                .isInstanceOf(UserFacingException.class);
+
+        var created = service.create(ADMIN, GUILD_A, "Os quatro cavaleiros do apocalipse", PlaylistScope.SERVER);
+
+        assertThat(created.ownerId()).isEqualTo(GUILD_A);
+        assertThat(created.guildId()).isEqualTo(GUILD_A);
+    }
+
+    @Test
+    void serverPlaylistIsVisibleAndPlayableByEveryoneInThatServerButEditableOnlyByAdmin() {
+        var horsemen = service.create(ADMIN, GUILD_A, "Os quatro cavaleiros do apocalipse", PlaylistScope.SERVER);
+
+        assertThat(service.visibleTo(ALICE, GUILD_A)).extracting(Playlist::id).containsExactly(horsemen.id());
+        assertThat(service.visibleTo(ALICE, GUILD_B)).isEmpty();
+        assertThat(service.playable(ALICE, GUILD_A, horsemen.id())).isEqualTo(horsemen);
+        assertThatThrownBy(() -> service.playable(ALICE, GUILD_B, horsemen.id())).isInstanceOf(UserFacingException.class);
+        assertThatThrownBy(() -> service.addTrack(ALICE, horsemen.id(), track("Primeiro cavaleiro"), null))
+                .isInstanceOf(UserFacingException.class);
+
+        service.addTrack(ADMIN, horsemen.id(), track("Primeiro cavaleiro"), null);
+        service.rename(ADMIN, horsemen.id(), "Os 4 cavaleiros");
+
+        var updated = service.get(horsemen.id());
+        assertThat(updated.ownerId()).isEqualTo(GUILD_A);
+        assertThat(updated.name()).isEqualTo("Os 4 cavaleiros");
+        assertThat(updated.tracks()).hasSize(1);
+    }
+
+    @Test
+    void adminBrowsingDoesNotDuplicateServerPlaylists() {
+        service.create(ADMIN, GUILD_A, "Do servidor", PlaylistScope.SERVER);
+
+        assertThat(service.browsableBy(ADMIN, GUILD_A)).hasSize(1);
+        assertThat(service.browsableBy(ADMIN, GUILD_B)).hasSize(1);
     }
 }
