@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 
 import java.util.List;
+import java.util.function.Function;
 
 public final class PlaylistView {
 
@@ -23,7 +24,7 @@ public final class PlaylistView {
     public static List<MessageTopLevelComponent> render(Playlist playlist) {
         var text = new StringBuilder("### 📜 %s\n-# %s · %d música(s) · %s\n".formatted(
                 Format.escape(playlist.name()),
-                playlist.scope() == PlaylistScope.GLOBAL ? "🌐 global" : "🏠 deste servidor",
+                scopeLabel(playlist.scope()),
                 playlist.tracks().size(),
                 Format.duration(playlist.totalDurationMs())));
         var tracks = playlist.tracks();
@@ -46,6 +47,22 @@ public final class PlaylistView {
                         Button.secondary(CustomId.of(PREFIX, "shuffle", playlist.id()), "Aleatório").withEmoji(Emoji.fromUnicode("🔀")).withDisabled(tracks.isEmpty()))));
     }
 
+    private static String scopeLabel(PlaylistScope scope) {
+        return switch (scope) {
+            case GLOBAL -> "🌐 global";
+            case SERVER -> "🏛️ do servidor";
+            case GUILD -> "🏠 deste servidor";
+        };
+    }
+
+    private static String scopeMark(PlaylistScope scope) {
+        return switch (scope) {
+            case GLOBAL -> " 🌐";
+            case SERVER -> " 🏛️";
+            case GUILD -> "";
+        };
+    }
+
     public static String list(List<Playlist> playlists) {
         if (playlists.isEmpty()) {
             return "Você ainda não tem playlists aqui. Crie com `/playlist create`.";
@@ -53,8 +70,25 @@ public final class PlaylistView {
         var text = new StringBuilder("### 📚 Suas playlists\n");
         playlists.forEach(playlist -> text.append("- **%s**%s · %d música(s)\n".formatted(
                 Format.escape(playlist.name()),
-                playlist.scope() == PlaylistScope.GLOBAL ? " 🌐" : "",
+                scopeMark(playlist.scope()),
                 playlist.tracks().size())));
+        return text.toString();
+    }
+
+    /** Seção extra do {@code /playlist list} para admins: playlists das outras pessoas, com o dono. */
+    public static String othersForAdmin(List<Playlist> playlists, Function<Playlist, String> ownerName) {
+        if (playlists.isEmpty()) {
+            return "";
+        }
+        var text = new StringBuilder("\n### 🛡️ De outras pessoas (admin)\n");
+        playlists.stream().limit(MAX_LINES).forEach(playlist -> text.append("- **%s**%s · de %s · %d música(s)\n".formatted(
+                Format.escape(playlist.name()),
+                scopeMark(playlist.scope()),
+                Format.escape(ownerName.apply(playlist)),
+                playlist.tracks().size())));
+        if (playlists.size() > MAX_LINES) {
+            text.append("-# … e mais ").append(playlists.size() - MAX_LINES).append(" playlist(s); use o autocomplete do `/playlist show`\n");
+        }
         return text.toString();
     }
 }

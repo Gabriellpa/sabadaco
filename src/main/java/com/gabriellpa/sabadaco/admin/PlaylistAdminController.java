@@ -48,10 +48,16 @@ public class PlaylistAdminController {
     }
 
     @PostMapping
-    public String create(@RequestParam long ownerId, @RequestParam(required = false) Long guildId,
+    public String create(@RequestParam(required = false) Long ownerId, @RequestParam(required = false) Long guildId,
                          @RequestParam String name, @RequestParam PlaylistScope scope) {
-        if (scope == PlaylistScope.GUILD && guildId == null) {
-            throw new UserFacingException("Escolha o servidor para uma playlist de servidor.");
+        if (scope != PlaylistScope.GLOBAL && guildId == null) {
+            throw new UserFacingException("Escolha o servidor da playlist.");
+        }
+        if (scope == PlaylistScope.SERVER) {
+            return redirect(playlistService.createForServer(guildId, name));
+        }
+        if (ownerId == null) {
+            throw new UserFacingException("Informe o dono (id do usuário).");
         }
         var created = playlistService.create(ownerId, guildId == null ? 0 : guildId, name, scope);
         return redirect(created);

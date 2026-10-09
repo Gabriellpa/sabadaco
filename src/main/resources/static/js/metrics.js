@@ -298,14 +298,14 @@
         renderTable(card.dataset.chart);
     });
 
-    // ---------- KPIs (contagem com leve "bounce") ----------
-    const easeOutBack = (x) => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2);
+    // ---------- KPIs (contagem suave; sem "bounce", que a cada 2s parecia piscar) ----------
+    const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
     const animateNumber = (el, from, to, format) => {
         const start = performance.now();
-        const duration = 700;
+        const duration = 450;
         const step = (now) => {
             const p = Math.min(1, (now - start) / duration);
-            el.textContent = format(from + (to - from) * easeOutBack(p));
+            el.textContent = format(from + (to - from) * easeOutCubic(p));
             if (p < 1) requestAnimationFrame(step);
         };
         requestAnimationFrame(step);

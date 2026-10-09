@@ -50,8 +50,17 @@ dependencies {
     implementation("org.webjars.npm:htmx.org:${htmxVersion}") {
         because "Live updates in the admin panel without a frontend build"
     }
+    implementation("org.webjars.npm:idiomorph:0.7.4") {
+        because "HTMX morph swap: polling updates cards in place instead of re-creating them (no flicker)"
+    }
     implementation("org.webjars:webjars-locator-lite") {
         because "Version-agnostic /webjars/** URLs"
+    }
+    implementation("org.springframework.data:spring-data-mongodb") {
+        because "Persists playlists in MongoDB (sabadaco.storage.type=mongo); no Boot auto-config, see MongoStorageConfiguration"
+    }
+    implementation("org.mongodb:mongodb-driver-sync") {
+        because "Blocking MongoDB driver used by MongoTemplate"
     }
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor") {
         because "Generates metadata for @ConfigurationProperties"
@@ -80,6 +89,10 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
     testImplementation("org.awaitility:awaitility")
+    testImplementation("org.testcontainers:testcontainers-mongodb") {
+        because "MongoPlaylistRepositoryTest runs against a real MongoDB (skipped without Docker)"
+    }
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

@@ -5,6 +5,8 @@ import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.music.LoopMode;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.PlayerSnapshot;
+import com.gabriellpa.sabadaco.playlist.Playlist;
+import com.gabriellpa.sabadaco.playlist.PlaylistScope;
 import com.gabriellpa.sabadaco.discord.ui.PlayerPanel;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
@@ -58,6 +60,19 @@ public class AdminViews {
 
     // Helpers usados nos templates
 
+    /**
+     * {@code --art: url(...)} para a capa desfocada atrás do player. Só http(s), com aspas, parênteses e barras
+     * invertidas codificados, para uma URL de capa não conseguir escapar do {@code url()}.
+     */
+    public String artStyle(String artworkUrl) {
+        if (artworkUrl == null || !(artworkUrl.startsWith("https://") || artworkUrl.startsWith("http://"))) {
+            return null;
+        }
+        var safe = artworkUrl.replace("\\", "%5C").replace("'", "%27").replace("\"", "%22")
+                .replace("(", "%28").replace(")", "%29").replace(";", "%3B").replace("\n", "").replace("\r", "");
+        return "--art: url('" + safe + "')";
+    }
+
     public String duration(long millis) {
         return Format.duration(millis);
     }
@@ -72,6 +87,21 @@ public class AdminViews {
 
     public String user(long userId) {
         return userId == 0 ? "painel admin" : directory.userName(userId);
+    }
+
+    /** Dono para exibição: a pessoa ou, nas playlists do servidor, o próprio servidor. */
+    public String owner(Playlist playlist) {
+        return playlist.scope() == PlaylistScope.SERVER
+                ? "🏛️ " + directory.guildName(playlist.ownerId())
+                : user(playlist.ownerId());
+    }
+
+    public String scope(Playlist playlist) {
+        return switch (playlist.scope()) {
+            case GLOBAL -> "🌐 global";
+            case SERVER -> "🏛️ do servidor";
+            case GUILD -> "🏠 servidor";
+        };
     }
 
     public String guild(Long guildId) {

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
 <head th:replace="~{admin/fragments :: head(${card.name()})}"></head>
-<body>
+<body hx-ext="morph">
 <div class="app">
     <aside th:replace="~{admin/fragments :: sidebar}"></aside>
     <div class="main">
@@ -18,7 +18,7 @@
             <section th:replace="~{admin/fragments :: guildState}"></section>
 
             <section class="grid two section-gap">
-                <form class="card" th:hx-post="@{/admin/guilds/{id}/play(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">
+                <form class="card" th:hx-post="@{/admin/guilds/{id}/play(id=${card.id()})}" hx-target="#state" hx-swap="morph">
                     <div class="card-head"><h2>🎵 Tocar música</h2></div>
                     <label>Canal de voz
                         <select name="channelId" required>
@@ -29,7 +29,7 @@
                     <button class="primary">Adicionar (avulsa)</button>
                 </form>
 
-                <form class="card" th:hx-post="@{/admin/guilds/{id}/play-playlist(id=${card.id()})}" hx-target="#state" hx-swap="outerHTML">
+                <form class="card" th:hx-post="@{/admin/guilds/{id}/play-playlist(id=${card.id()})}" hx-target="#state" hx-swap="morph">
                     <div class="card-head"><h2>📜 Tocar playlist</h2></div>
                     <label>Canal de voz
                         <select name="channelId" required>
@@ -39,7 +39,7 @@
                     <label>Playlist
                         <select name="playlistId" required>
                             <option th:each="playlist : ${playlists}" th:value="${playlist.id()}"
-                                    th:text="|${playlist.label()} — ${@views.user(playlist.ownerId())} (${playlist.tracks().size()})|">playlist</option>
+                                    th:text="|${playlist.label()} — ${@views.owner(playlist)} (${playlist.tracks().size()})|">playlist</option>
                         </select>
                     </label>
                     <label class="inline"><input type="checkbox" name="shuffle" value="true"> Ordem aleatória</label>

@@ -21,7 +21,7 @@ docker compose up -d --build
 docker compose logs -f    # a senha do painel aparece aqui se ADMIN_PASSWORD estiver vazio
 ```
 
-O painel fica em http://localhost:8080. As playlists estão em memória por enquanto e se perdem ao recriar o container.
+O painel fica em http://localhost:8080. Por padrão as playlists ficam em memória e se perdem ao recriar o container; com `STORAGE_TYPE=mongo` e `MONGODB_URI` elas vão para o MongoDB (em produção, o Mongo, o backup e o dashboard do Grafana ficam no repo [infra-apps](https://github.com/Gabriellpa/infra-apps)).
 
 ### O que é `DISCORD_DEV_GUILD_ID`
 
@@ -43,6 +43,8 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 |---|---|---|
 | `DISCORD_BOT_TOKEN` | — | Token do bot (obrigatório) |
 | `DISCORD_DEV_GUILD_ID` | vazio | Registro de comandos em um servidor só (dev) |
+| `STORAGE_TYPE` / `MONGODB_URI` | `memory` / — | Onde ficam as playlists: memória ou MongoDB |
+| `DISCORD_ADMIN_IDS` | `334670701011271682` | Usuários do Discord que veem e tocam a playlist de qualquer pessoa |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / aleatória | Login do painel e basic auth do `/actuator/prometheus` |
 | `YOUTUBE_CIPHER_URL` / `YOUTUBE_CIPHER_PASSWORD` | `https://cipher.kikkia.dev/api` | Servidor de cipher do YouTube (recomendado hospedar o seu: [yt-cipher](https://github.com/kikkia/yt-cipher)) |
 | `YOUTUBE_OAUTH_ENABLED` / `YOUTUBE_OAUTH_REFRESH_TOKEN` | `false` / vazio | Login no YouTube (client TV), **só se** voltar a aparecer *"This video requires login"* (hoje o client IOS toca sem login). **Use uma conta Google descartável.** Passo a passo no `.env.example` |
@@ -77,6 +79,7 @@ O usuário é avisado nos dois sentidos:
 - Sempre pertencem a um usuário. Escopo **servidor** (padrão: só vale onde foi criada) ou **global** (vale em qualquer servidor).
 - Músicas podem ter **apelido** (`/playlist alias`), que aparece no autocomplete do `/play`.
 - `/playlist move` move uma música (com o apelido) de uma playlist para outra.
+- **Admins** (`DISCORD_ADMIN_IDS`) veem as playlists de todo mundo no `/playlist list` e no autocomplete (com o nome do dono) e podem mostrar e tocar qualquer uma. Editar continua sendo só do dono (ou pelo painel web).
 
 ## Arquitetura
 
