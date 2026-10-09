@@ -9,6 +9,7 @@ Guarda as playlists. Roda no namespace `prd`, ao lado do bot, com PVC `local-pat
 | `sabadaco-mongo-init` (ConfigMap) | cria o usuário `sabadaco` (readWrite só no banco `sabadaco`) na primeira subida |
 | `sabadaco-mongo-backup` (CronJob 03:15 UTC) | `mongodump --gzip` no PVC `sabadaco-mongo-backups`, 7 dias; cópia externa opcional via Secret `backup-rclone` |
 | `sabadaco-mongo` (Secret, **não versionado**) | senhas do root e do usuário do bot, criado por `create-secret.sh` |
+| `sabadaco-bot-mongo` (Secret, **não versionado**) | só `MONGODB_URI`, para o bot; criado pelo mesmo script |
 
 A 8.0 não serve: ela se recusa a subir em kernel Linux 6.19 ou mais novo, e a VM roda 7.0.
 
@@ -22,10 +23,12 @@ kubectl apply -k deploy/mongo
 kubectl -n prd rollout status deploy/sabadaco-mongo
 ```
 
-Depois, no app `sabadaco-bot` (projeto `sbc`, ambiente prd) pela UI da plataforma:
+Depois, no app `sabadaco-bot` (projeto `sbc`, ambiente prd), com uma imagem que tenha a persistência:
 
 - variável `STORAGE_TYPE=mongo`
-- segredo `MONGODB_URI` = conteúdo de `deploy/mongo/.mongodb-uri` (apague o arquivo depois)
+- `MONGODB_URI` vinda do Secret `sabadaco-bot-mongo` (`envFrom` ou `secretKeyRef`). Se a UI ainda não souber
+  referenciar um Secret existente, copie o valor com
+  `kubectl -n prd get secret sabadaco-bot-mongo -o jsonpath='{.data.MONGODB_URI}' | base64 -d` para o segredo do app.
 
 e reimplante o bot. No log aparece a conexão com o Mongo; `/playlist create` seguido de um restart do pod deve manter a playlist.
 

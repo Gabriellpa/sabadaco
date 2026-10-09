@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Cria o Secret sabadaco-mongo (senhas aleatórias) no ns prd. Rode na VM, onde está o kubectl.
-# Não sobrescreve um Secret existente: as senhas valem para sempre depois que o volume é criado.
+# Cria os Secrets do Mongo do sabadaco no ns prd, com senhas aleatórias. Rode na VM, onde está o kubectl.
+# Não sobrescreve Secrets existentes: as senhas valem para sempre depois que o volume é criado.
 #
-# A URI que o bot usa (MONGODB_URI) é gravada em deploy/mongo/.mongodb-uri (fora do git,
-# permissão 600) e não aparece no terminal. Copie o valor para o Secret do app pela UI.
+#   sabadaco-mongo      usuário root e usuário do bot (lidos pelo Mongo e pelo CronJob de backup)
+#   sabadaco-bot-mongo  só MONGODB_URI, para o bot ler; não carrega a senha do root
+#
+# Nenhuma senha aparece no terminal nem vai para arquivo.
 set -euo pipefail
 
 NS=prd
-SECRET=sabadaco-mongo
-HERE="$(cd "$(dirname "$0")" && pwd)"
-URI_FILE="$HERE/.mongodb-uri"
+SERVER_SECRET=sabadaco-mongo
+APP_SECRET=sabadaco-bot-mongo
 
-if kubectl -n "$NS" get secret "$SECRET" >/dev/null 2>&1; then
-  echo "Secret $NS/$SECRET já existe; nada a fazer."
+if kubectl -n "$NS" get secret "$SERVER_SECRET" >/dev/null 2>&1; then
+  echo "Secret $NS/$SERVER_SECRET já existe; nada a fazer."
   exit 0
 fi
 
@@ -20,12 +21,15 @@ fi
 root_password="$(openssl rand -hex 24)"
 app_password="$(openssl rand -hex 24)"
 
-kubectl -n "$NS" create secret generic "$SECRET" \
+kubectl -n "$NS" create secret generic "$SERVER_SECRET" \
   --from-literal=MONGO_INITDB_ROOT_USERNAME=root \
   --from-literal=MONGO_INITDB_ROOT_PASSWORD="$root_password" \
   --from-literal=MONGO_APP_USER=sabadaco \
   --from-literal=MONGO_APP_PASSWORD="$app_password"
+kubectl -n "$NS" label secret "$SERVER_SECRET" app=sabadaco-mongo >/dev/null
 
-umask 077
-printf 'mongodb://sabadaco:%s@sabadaco-mongo.%s.svc:27017/sabadaco\n' "$app_password" "$NS" > "$URI_FILE"
-echo "Secret $NS/$SECRET criado. MONGODB_URI do bot gravada em $URI_FILE"
+kubectl -n "$NS" create secret generic "$APP_SECRET" \
+  --from-literal=MONGODB_URI="mongodb://sabadaco:${app_password}@sabadaco-mongo.${NS}.svc:27017/sabadaco"
+kubectl -n "$NS" label secret "$APP_SECRET" app=sabadaco-bot >/dev/null
+
+echo "Secrets $NS/$SERVER_SECRET e $NS/$APP_SECRET criados."
