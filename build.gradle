@@ -50,6 +50,9 @@ dependencies {
     implementation("org.webjars.npm:htmx.org:${htmxVersion}") {
         because "Live updates in the admin panel without a frontend build"
     }
+    implementation("org.webjars.npm:idiomorph:0.7.4") {
+        because "HTMX morph swap: polling updates cards in place instead of re-creating them (no flicker)"
+    }
     implementation("org.webjars:webjars-locator-lite") {
         because "Version-agnostic /webjars/** URLs"
     }
