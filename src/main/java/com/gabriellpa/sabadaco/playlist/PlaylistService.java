@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.playlist;
 
+import com.gabriellpa.sabadaco.DiscordAdmins;
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.music.TrackSummary;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,7 @@ import java.util.Objects;
 
 /**
  * Regras das playlists. Toda operação de escrita exige o dono ({@code ownerId}); o painel admin
- * age em nome do dono da playlist.
+ * age em nome do dono da playlist. Admins do Discord ({@link DiscordAdmins}) veem e tocam qualquer playlist.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class PlaylistService {
     private static final Comparator<Playlist> ORDER = Comparator.comparing(Playlist::scope).thenComparing(Playlist::name, String.CASE_INSENSITIVE_ORDER);
 
     private final PlaylistRepository repository;
+    private final DiscordAdmins admins;
 
     /** @param scope {@code null} = {@link PlaylistScope#GUILD} */
     public synchronized Playlist create(long ownerId, long guildId, String name, PlaylistScope scope) {
@@ -41,6 +43,37 @@ public class PlaylistService {
                 .filter(playlist -> playlist.visibleIn(guildId))
                 .sorted(ORDER)
                 .toList();
+    }
+
+    /**
+     * Playlists que o usuário pode escolher nos comandos: as visíveis para ele e, se for admin,
+     * as de todo mundo em seguida (as dele vêm primeiro, para nomes iguais resolverem para a dele).
+     */
+    public List<Playlist> browsableBy(long userId, long guildId) {
+        var own = visibleTo(userId, guildId);
+        if (!admins.isAdmin(userId)) {
+            return own;
+        }
+        var others = repository.findAll().stream()
+                .filter(playlist -> playlist.ownerId() != userId)
+                .sorted(Comparator.comparingLong(Playlist::ownerId).thenComparing(ORDER))
+                .toList();
+        var result = new ArrayList<>(own);
+        result.addAll(others);
+        return result;
+    }
+
+    /** Playlist que o usuário pode ver e tocar: a dele ou, para admins, qualquer uma. */
+    public Playlist playable(long userId, String id) {
+        var playlist = get(id);
+        if (playlist.ownerId() != userId && !admins.isAdmin(userId)) {
+            throw new UserFacingException("Essa playlist não é sua.");
+        }
+        return playlist;
+    }
+
+    public boolean isAdmin(long userId) {
+        return admins.isAdmin(userId);
     }
 
     /** Filtro do painel admin; parâmetros nulos não filtram. */

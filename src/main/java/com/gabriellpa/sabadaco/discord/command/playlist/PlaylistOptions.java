@@ -1,6 +1,7 @@
 package com.gabriellpa.sabadaco.discord.command.playlist;
 
 import com.gabriellpa.sabadaco.UserFacingException;
+import com.gabriellpa.sabadaco.discord.DiscordDirectory;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.playlist.Playlist;
@@ -22,7 +23,7 @@ import java.util.stream.IntStream;
 /**
  * Opções e autocomplete compartilhados pelos subcomandos de {@code /playlist}.
  * O autocomplete envia o id da playlist (resolve nomes iguais em escopos diferentes),
- * mas o usuário também pode digitar o nome.
+ * mas o usuário também pode digitar o nome. Admins também veem as playlists dos outros, com o nome do dono.
  */
 @Component
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class PlaylistOptions {
     private static final int MAX_CHOICES = 25;
 
     private final PlaylistService playlistService;
+    private final DiscordDirectory directory;
 
     public static OptionData playlist(String name, String description) {
         return new OptionData(OptionType.STRING, name, description, true, true);
@@ -75,10 +77,11 @@ public class PlaylistOptions {
                     .toList()).queue();
             return;
         }
+        long userId = event.getUser().getIdLong();
         event.replyChoices(visible(event).stream()
                 .filter(playlist -> playlist.name().toLowerCase(Locale.ROOT).contains(typed))
                 .limit(MAX_CHOICES)
-                .map(playlist -> new Command.Choice(Format.truncate(playlist.label(), 100), playlist.id()))
+                .map(playlist -> new Command.Choice(Format.truncate(label(playlist, userId), 100), playlist.id()))
                 .toList()).queue();
     }
 
@@ -88,7 +91,11 @@ public class PlaylistOptions {
                 .or(() -> playlists.stream().filter(playlist -> playlist.name().equalsIgnoreCase(idOrName.trim())).findFirst());
     }
 
+    private String label(Playlist playlist, long userId) {
+        return playlist.ownerId() == userId ? playlist.label() : playlist.label() + " · de " + directory.userName(playlist.ownerId());
+    }
+
     private List<Playlist> visible(Interaction event) {
-        return playlistService.visibleTo(event.getUser().getIdLong(), Interactions.guildId(event));
+        return playlistService.browsableBy(event.getUser().getIdLong(), Interactions.guildId(event));
     }
 }

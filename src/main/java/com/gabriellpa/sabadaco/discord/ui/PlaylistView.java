@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 
 import java.util.List;
+import java.util.function.LongFunction;
 
 public final class PlaylistView {
 
@@ -55,6 +56,23 @@ public final class PlaylistView {
                 Format.escape(playlist.name()),
                 playlist.scope() == PlaylistScope.GLOBAL ? " 🌐" : "",
                 playlist.tracks().size())));
+        return text.toString();
+    }
+
+    /** Seção extra do {@code /playlist list} para admins: playlists das outras pessoas, com o dono. */
+    public static String othersForAdmin(List<Playlist> playlists, LongFunction<String> ownerName) {
+        if (playlists.isEmpty()) {
+            return "";
+        }
+        var text = new StringBuilder("\n### 🛡️ De outras pessoas (admin)\n");
+        playlists.stream().limit(MAX_LINES).forEach(playlist -> text.append("- **%s**%s · de %s · %d música(s)\n".formatted(
+                Format.escape(playlist.name()),
+                playlist.scope() == PlaylistScope.GLOBAL ? " 🌐" : "",
+                Format.escape(ownerName.apply(playlist.ownerId())),
+                playlist.tracks().size())));
+        if (playlists.size() > MAX_LINES) {
+            text.append("-# … e mais ").append(playlists.size() - MAX_LINES).append(" playlist(s); use o autocomplete do `/playlist show`\n");
+        }
         return text.toString();
     }
 }

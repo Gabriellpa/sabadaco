@@ -27,8 +27,8 @@ public class PlaylistComponents implements ComponentHandler {
     public void onButton(ButtonInteractionEvent event, String action, String payload) {
         long userId = event.getUser().getIdLong();
         switch (action) {
-            case "play" -> playback.playPlaylist(event, playlistService.owned(userId, payload), false);
-            case "shuffle" -> playback.playPlaylist(event, playlistService.owned(userId, payload), true);
+            case "play" -> playback.playPlaylist(event, playlistService.playable(userId, payload), false);
+            case "shuffle" -> playback.playPlaylist(event, playlistService.playable(userId, payload), true);
             case "delete" -> {
                 var playlist = playlistService.owned(userId, payload);
                 playlistService.delete(userId, payload);

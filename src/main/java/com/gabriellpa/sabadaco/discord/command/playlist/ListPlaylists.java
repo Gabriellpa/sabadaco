@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.discord.command.playlist;
 
+import com.gabriellpa.sabadaco.discord.DiscordDirectory;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
@@ -16,8 +17,11 @@ import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 @Component
 class ListPlaylists extends PlaylistSubcommand {
 
-    ListPlaylists(PlaylistService playlists, PlaylistOptions options) {
+    private final DiscordDirectory directory;
+
+    ListPlaylists(PlaylistService playlists, PlaylistOptions options, DiscordDirectory directory) {
         super(playlists, options);
+        this.directory = directory;
     }
 
     @Override
@@ -27,8 +31,16 @@ class ListPlaylists extends PlaylistSubcommand {
 
     @Override
     public void handle(SlashCommandInteractionEvent event) {
-        var visible = playlists.visibleTo(event.getUser().getIdLong(), Interactions.guildId(event));
-        event.reply(PlaylistView.list(visible)).setEphemeral(true).queue();
+        long userId = event.getUser().getIdLong();
+        var visible = playlists.visibleTo(userId, Interactions.guildId(event));
+        var text = PlaylistView.list(visible);
+        if (playlists.isAdmin(userId)) {
+            var others = playlists.browsableBy(userId, Interactions.guildId(event)).stream()
+                    .filter(playlist -> playlist.ownerId() != userId)
+                    .toList();
+            text += PlaylistView.othersForAdmin(others, directory::userName);
+        }
+        event.reply(text).setEphemeral(true).queue();
     }
 
     @Override

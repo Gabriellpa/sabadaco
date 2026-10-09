@@ -1,0 +1,14 @@
+# Roda uma vez só, quando o volume está vazio: cria o usuário do bot, com acesso só ao banco sabadaco.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sabadaco-mongo-init
+  labels:
+    app: sabadaco-mongo
+data:
+  01-app-user.js: |
+    db.getSiblingDB('sabadaco').createUser({
+      user: process.env.MONGO_APP_USER,
+      pwd: process.env.MONGO_APP_PASSWORD,
+      roles: [{ role: 'readWrite', db: 'sabadaco' }]
+    });

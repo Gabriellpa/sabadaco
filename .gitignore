@@ -41,3 +41,6 @@ out/
 
 ### Heap dumps da JVM ###
 *.hprof
+
+### URI do Mongo gerada por deploy/mongo/create-secret.sh ###
+deploy/mongo/.mongodb-uri

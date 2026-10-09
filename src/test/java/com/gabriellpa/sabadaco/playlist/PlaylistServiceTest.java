@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.playlist;
 
+import com.gabriellpa.sabadaco.DiscordAdmins;
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.music.TrackSummary;
 import org.junit.jupiter.api.Test;
@@ -11,10 +12,11 @@ class PlaylistServiceTest {
 
     private static final long ALICE = 1;
     private static final long BOB = 2;
+    private static final long ADMIN = 3;
     private static final long GUILD_A = 100;
     private static final long GUILD_B = 200;
 
-    private final PlaylistService service = new PlaylistService(new InMemoryPlaylistRepository());
+    private final PlaylistService service = new PlaylistService(new InMemoryPlaylistRepository(), DiscordAdmins.of(ADMIN));
 
     @Test
     void defaultsToGuildScope() {
@@ -87,5 +89,25 @@ class PlaylistServiceTest {
 
     private static TrackSummary track(String title) {
         return new TrackSummary(title, "autor", "https://youtu.be/" + title, 120_000, null, false);
+    }
+
+    @Test
+    void adminBrowsesAndPlaysEveryonesPlaylistsButOnlyEditsOwn() {
+        var mine = service.create(ADMIN, GUILD_A, "Rock", null);
+        var bobs = service.create(BOB, GUILD_B, "Rock", null);
+        service.create(ALICE, GUILD_A, "Pagode", PlaylistScope.GLOBAL);
+
+        assertThat(service.browsableBy(ADMIN, GUILD_A)).extracting(Playlist::id).startsWith(mine.id()).hasSize(3);
+        assertThat(service.playable(ADMIN, bobs.id())).isEqualTo(bobs);
+        assertThatThrownBy(() -> service.rename(ADMIN, bobs.id(), "Meu agora")).isInstanceOf(UserFacingException.class);
+    }
+
+    @Test
+    void regularUserOnlyBrowsesAndPlaysOwn() {
+        service.create(ALICE, GUILD_A, "Pagode", null);
+        var bobs = service.create(BOB, GUILD_A, "Rock", null);
+
+        assertThat(service.browsableBy(ALICE, GUILD_A)).extracting(Playlist::name).containsExactly("Pagode");
+        assertThatThrownBy(() -> service.playable(ALICE, bobs.id())).isInstanceOf(UserFacingException.class);
     }
 }
