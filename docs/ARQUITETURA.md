@@ -63,7 +63,7 @@ Os princípios que guiaram as escolhas:
 |---|---|
 | `MusicService` | **Fachada** usada por Discord e admin: `play`, `playPlaylist`, `resolve`, `togglePause`, `skip`, `stop`, `setVolume`, `cycleLoop`, `shuffle`, operações de fila e `snapshot`. Orquestra loader, registry e voz. |
 | `GuildPlayerRegistry` | Um `GuildPlayer` por servidor, criado sob demanda (`computeIfAbsent` num `ConcurrentHashMap`). |
-| `GuildPlayer` | O `AudioPlayer` do Lavaplayer + o `TrackScheduler` daquele servidor. `provideFrame()` entrega áudio para o Discord e contabiliza bytes. |
+| `GuildPlayer` | O `AudioPlayer` do Lavaplayer + o `TrackScheduler` daquele servidor. `provideFrame()` entrega áudio para o Discord e contabiliza bytes. `tap(...)` entrega uma cópia de cada frame a quem quiser ouvir (admin, veja [8.4](#84-ouvir-pelo-painel)). |
 | `TrackScheduler` | **A fila.** Duas pistas (avulsas e playlist), faixa atual, loop, e os listeners do Lavaplayer (`onTrackEnd` etc.). É a classe mais delicada; veja a [seção 4](#4-concorrência-threads-locks-e-por-quê). |
 | `TrackLoader` | Converte o callback do Lavaplayer em `CompletableFuture<LoadResult>`. Decide se o texto é URL ou busca (`ytsearch:`). |
 | `SearchService` | Busca no YouTube com cache LRU de 5 min. |
@@ -96,6 +96,7 @@ Os princípios que guiaram as escolhas:
 | `JdaVoiceGateway` | Implementa `VoiceGateway`: abre a conexão de voz e pluga o `AudioPlayerSendHandler`. |
 | `AudioPlayerSendHandler` | Ponte Lavaplayer → JDA: o JDA pede um frame Opus a cada 20 ms. |
 | `DiscordDirectory` | Nomes de servidores, canais e usuários para o admin (usuários são lembrados quando interagem). |
+| `interaction.InteractionExecuted` | Evento publicado pelo `InteractionRouter` ao fim de cada comando/componente (usuário, nome, resultado, duração), usado pelas estatísticas do admin. |
 | `interaction.*` | O "framework" de comandos (veja [5.1](#51-comandos-por-interface-e-não-por-anotação--reflexão)). Inclui `CommandHelp` (a ajuda que cada comando declara) e `HelpCatalog` (junta a ajuda de todos para o `/help`, veja [5.14](#514-help-montado-a-partir-dos-próprios-comandos)). |
 | `command.*` | Um comando por classe (inclui `HelpCommand`, o `/help`). `PlaybackReplies` concentra o fluxo "tocar + responder + garantir painel". |
 | `command.playlist.*` | Os 11 subcomandos de `/playlist`, cada um em sua classe, com base comum `PlaylistSubcommand` e opções/autocomplete em `PlaylistOptions`. |
@@ -106,11 +107,14 @@ Os princípios que guiaram as escolhas:
 
 | Classe | Papel |
 |---|---|
-| `SecurityConfiguration` | Login por formulário (painel) + basic auth (Prometheus). Usuário em memória vindo do ambiente. |
+| `SecurityConfiguration` | Login por formulário (painel). `/actuator/prometheus` aberto só na porta de gerenciamento (8081). Usuário em memória vindo do ambiente. |
 | `DashboardController`, `GuildController`, `PlaylistAdminController` | Telas e ações. |
 | `AdminViews` | Monta os dados das telas e expõe helpers de formatação para o Thymeleaf (`@views.duration(...)`). |
 | `PlayerControls` | Ações de player compartilhadas pelas telas. |
 | `AdminErrorHandler` | `UserFacingException` → toast (HTMX) ou mensagem flash (redirect). |
+| `MetricsController` | Página `/admin/metrics` e API JSON `/admin/api/metrics?since=` (histórico incremental + resumo). Veja [8.3](#83-aba-métricas-de-onde-vêm-os-números). |
+| `listen.ListenController` | `GET /admin/guilds/{id}/listen`: stream Ogg/Opus do que o bot toca ([8.4](#84-ouvir-pelo-painel)). |
+| `listen.OggOpusWriter` | Empacota frames Opus em páginas Ogg (RFC 3533/7845), sem recodificar. |
 
 ### `metrics`
 
@@ -118,6 +122,9 @@ Os princípios que guiaram as escolhas:
 |---|---|
 | `MusicMetrics` | Escuta `PlayerEvent` e registra contadores, timers e gauges. |
 | `CountingHttpEntity` | Conta os bytes lidos das respostas HTTP do Lavaplayer (download). |
+| `ActivityTracker` | Usuários ativos, rankings (músicas, comandos, usuários), plays avulsa × playlist e o `Timer` de latência com p50/p95/p99 (janela móvel de 2 min). |
+| `MetricsSampler` | A cada 2 s tira uma `MetricsSample` (taxas calculadas a partir dos contadores acumulados) e guarda 15 min em memória. |
+| `MetricsSample` | Record com uma foto das métricas, consumido pelos gráficos. |
 
 ---
 
@@ -577,6 +584,8 @@ Detalhe da localização: o JDA monta as chaves a partir dos nomes (`playlist.cr
 | `sabadaco.searches` | Contador com `found`/`empty`/`cached` | Eficiência do cache |
 | Gauges (`players.active`, `queue.size`, `playlists.saved`) | Funções lidas sob demanda | Estado atual, sem manter contadores em paralelo |
 
+Além dessas, o `ActivityTracker` registra `sabadaco.interactions.latency` (um `Timer` sem tags, com p50/p95/p99 numa janela móvel de 2 min), usado pela aba Métricas do admin ([8.3](#83-aba-métricas-de-onde-vêm-os-números)).
+
 Duas limitações conscientes:
 - **Download por música não é exato:** o HTTP do Lavaplayer não sabe de qual faixa é cada requisição. Por isso o "KB da música" usa os bytes **transmitidos**, e o download é agregado por fonte.
 - **O YouTube source não implementa `HttpConfigurable`**, então `setHttpBuilderConfigurator` não o alcança. O contador é ligado direto em `youtube.getHttpInterfaceManager()`, o que foi descoberto lendo o código-fonte.
@@ -585,13 +594,85 @@ Duas limitações conscientes:
 
 ## 8. Painel admin
 
-- **Thymeleaf + HTMX** em vez de um SPA: um deploy só, sem build de frontend. O HTMX troca **pedaços** da página (`hx-post` → fragmento HTML), dando sensação de app.
-- **Polling a cada 2 s** (`hx-trigger="every 2s"`) em vez de WebSocket/SSE: mais simples, sem estado de conexão, e suficiente para um painel com poucos usuários.
-- **CSRF:** o token vai numa `<meta>`, e um listener `htmx:configRequest` o coloca em toda requisição HTMX. Os formulários com `th:action` recebem o campo automaticamente.
+### 8.1 Telas e HTMX
+
+- **Thymeleaf + HTMX** em vez de um SPA: um deploy só, sem build de frontend. O HTMX troca **pedaços** da página (`hx-post` → fragmento HTML), dando sensação de app. JavaScript próprio só onde HTMX não serve: tema, player de escuta (`static/js/admin.js`) e a aba de gráficos (`static/js/metrics.js`).
+- **Polling a cada 2 s** (`hx-trigger="every 2s"`) em vez de WebSocket/SSE: mais simples, sem estado de conexão, e suficiente para um painel com poucos usuários. A aba de métricas segue a mesma ideia (consulta a API JSON a cada 2 s).
+- **CSRF:** o token vai numa `<meta>`, e um listener `htmx:configRequest` (em `admin.js`) o coloca em toda requisição HTMX. Os formulários com `th:action` recebem o campo automaticamente.
 - **Erros:** `AdminErrorHandler` responde com cabeçalhos `HX-Retarget: #toast` e `HX-Reswap: innerHTML`: a mensagem aparece no toast em vez de substituir o conteúdo. Fora do HTMX, vira mensagem *flash* e volta para a página anterior, aceitando só caminhos `/admin` para evitar *open redirect*.
 - **Playlists usam POST + redirect (PRG):** recarregar a página não reenvia o formulário.
-- **Segurança:** form login para o navegador, basic auth para o Prometheus. Sem `ADMIN_PASSWORD`, uma senha aleatória é gerada e logada, nunca uma senha padrão fixa.
+- **Segurança:** form login para o navegador; o Prometheus coleta sem senha pela porta 8081, que não sai do cluster. Sem `ADMIN_PASSWORD`, uma senha aleatória é gerada e logada, nunca uma senha padrão fixa.
 - O admin age **em nome do dono** da playlist (`owner(id)`), reaproveitando as mesmas regras do `PlaylistService`.
+
+### 8.2 Visual: temas, barra lateral e animações
+
+- **Telas** em `templates/admin/` (`fragments`, `dashboard`, `guild`, `playlists`, `playlist`, `metrics`) e estilos em `static/css/admin.css`. Todas usam os mesmos fragmentos (`head`, `sidebar`, `flash`, `listenBar`); a barra lateral vira barra superior abaixo de ~860 px.
+- **Temas:** "creme" (claro, bege bem clarinho) e escuro, definidos como **variáveis CSS** (tokens de cor). A escolha do botão **Tema** fica no `localStorage` (`sabadaco-theme`); um script mínimo no `<head>` a aplica **antes de pintar**, para a página não piscar no tema errado. Sem escolha salva, vale `prefers-color-scheme`. O JS dispara o evento `themechange`, e os gráficos releem as cores na hora.
+- **Animações** (entrada das páginas, hover dos cartões, indicador das abas com mola, pop-in dos painéis, KPIs contando com *easeOutBack*, barras nascendo) ficam todas atrás de `prefers-reduced-motion`: quem pede menos movimento não vê nenhuma.
+- Fonte Geist (Google Fonts) e Chart.js (cdnjs) vêm de CDN **para o navegador**; o servidor não depende de internet para isso, mas o navegador do admin sim para ver os gráficos.
+
+### 8.3 Aba Métricas: de onde vêm os números
+
+```mermaid
+flowchart LR
+  R[InteractionRouter] -- InteractionExecuted --> AT[ActivityTracker]
+  GP[TrackScheduler] -- PlayerEvent --> AT
+  MM[MeterRegistry<br/>Micrometer] --> MS
+  AT --> MS[MetricsSampler<br/>a cada 2 s]
+  DD[DiscordDirectory.stats] --> MS
+  OS[OperatingSystemMXBean<br/>memória, GC, threads] --> MS
+  MS -- 450 MetricsSample --> MC[MetricsController]
+  AT --> MC
+  MC -- JSON --> JS[metrics.js + Chart.js]
+```
+
+| Peça | Papel |
+|---|---|
+| `InteractionExecuted` | Evento (record) que o `InteractionRouter` publica ao fim de **cada** comando ou componente: `userId`, `name`, `component`, `outcome` (`success`, `user_error`, `error`) e `durationNanos`. Desacopla o router das estatísticas, na mesma linha do `PlayerEvent`. |
+| `ActivityTracker` | Escuta `InteractionExecuted` e `PlayerEvent.TrackStarted`. Guarda **usuários ativos** (último momento visto), rankings (top músicas, comandos, usuários), plays avulsa × playlist e um `Timer` global `sabadaco.interactions.latency` com percentis p50/p95/p99 numa **janela móvel de 2 min**. O mapa de músicas é limitado (2000 títulos) para não crescer sem fim. |
+| `MetricsSampler` | `@Scheduled` a cada 2 s tira uma `MetricsSample` e guarda as últimas **450 (15 min)** num `Deque`. Os contadores do Micrometer são **acumulados**; o sampler guarda os totais da foto anterior e grava a **diferença** (taxa): KB/s enviados e baixados, músicas iniciadas, comandos e erros (por nome), latência média/p95/p99, mais CPU do processo e da máquina (`OperatingSystemMXBean`), heap/não-heap, threads de plataforma, pausas de GC, servidores tocando, fila, ouvintes em voz, usuários ativos (5 min), buscas e buscas do cache, conexões de voz e ping do gateway. |
+| `MetricsSample` | Record imutável com uma foto. Valores "por intervalo" já são deltas; o resto é o valor no instante `t`. |
+| `DiscordDirectory.stats()` | Servidores, conexões de voz, ouvintes (pessoas nos canais com o bot, sem contar bots) e ping do gateway. |
+| `MetricsController` | `GET /admin/metrics` (a página) e `GET /admin/api/metrics?since=<t>`: o histórico **incremental** (só as fotos com `t > since`) mais um **resumo** atual (totais, rankings, playlists por escopo, tempo no ar). |
+| `static/js/metrics.js` | Busca a API a cada 2 s, mantém as fotos em memória, desenha com Chart.js. Toda a aba nasce da constante `GROUPS`. |
+
+Decisões:
+- **Histórico no servidor, em memória:** a página abre já preenchida (até 15 min) e a coleta continua com a aba fechada ou pausada. Não substitui o Prometheus: para histórico longo, alertas e retenção use o `/actuator/prometheus` (porta 8081) com Grafana; o dashboard está no repo `infra-apps`. Reiniciar o bot zera o histórico.
+- **Taxas calculadas no sampler, não no navegador:** o navegador recebe números prontos e não precisa lembrar do total anterior (nem se perde se você recarregar).
+- **JSON incremental (`since`)** evita reenviar 15 min de dados a cada 2 s; só o resumo (pequeno) vai inteiro.
+- **Percentis numa janela móvel** (`distributionStatisticExpiry`): p95 e p99 refletem os últimos 2 min, não o tempo de vida do processo, que esconderia um problema recente.
+- **Evento em vez de o router chamar o tracker:** o router não conhece estatísticas; se amanhã houver um log de auditoria, é só outro `@EventListener`.
+- **Visualização** (regras seguidas no `metrics.js`): cores categóricas em ordem fixa e **por entidade** (a cor de um comando nunca troca de lugar), validadas para daltonismo e contraste nos dois temas; um eixo Y por gráfico; legenda sempre visível com o valor atual (linhas) ou o total da janela (barras); barras agrupadas em no máximo 30 colunas em janelas longas; e um botão **Tabela** em cada gráfico como alternativa acessível.
+
+### 8.4 Ouvir pelo painel
+
+O painel pode transmitir ao navegador **o mesmo áudio que o bot envia ao Discord**.
+
+```mermaid
+sequenceDiagram
+  participant D as Thread de envio do JDA
+  participant GP as GuildPlayer
+  participant Q as ArrayBlockingQueue (250)
+  participant L as ListenController<br/>(virtual thread do Tomcat)
+  participant B as Navegador (&lt;audio&gt;)
+
+  B->>L: GET /admin/guilds/{id}/listen
+  L->>GP: tap(queue::offer)
+  L-->>B: cabeçalhos Ogg (OpusHead, OpusTags)
+  loop a cada 20 ms
+    D->>GP: provideFrame()
+    GP->>Q: cópia do frame Opus (offer, instantâneo)
+    L->>Q: poll(1 s)
+    L-->>B: página Ogg (1 pacote)
+  end
+```
+
+- **`GuildPlayer.tap(Consumer<byte[]>)`** registra um consumidor que recebe uma **cópia de cada frame Opus** que vai ao Discord. Devolve um `AutoCloseable` (try-with-resources remove o tap ao fim da requisição). O consumidor roda na **thread de áudio** (50×/s, a regra do [4.2](#42-por-que-synchronized-no-trackscheduler)): por isso é só `queue::offer`, que nunca bloqueia.
+- **Fila limitada de ~5 s (250 frames):** se o navegador atrasar e a fila encher, `keepLatest` descarta o frame **mais antigo** e enfileira o novo. Assim o ouvinte continua "ao vivo" (no máximo ~5 s de atraso) em vez de ficar cada vez mais para trás. A operação nunca bloqueia, então um ouvinte lento **nunca** trava o áudio do Discord.
+- **`OggOpusWriter`** empacota os frames em Ogg (RFC 3533 / 7845): `OpusHead`, `OpusTags`, **um pacote por página**, *granule position* +960 por frame de 20 ms (48 kHz) e CRC do Ogg. Validado com ffmpeg (250 frames viram 5,00 s, Opus 48 kHz estéreo, sem erros) e coberto por `OggOpusWriterTest`. O Opus do Lavaplayer já está pronto, então **não há recodificação**.
+- **Escrita síncrona na resposta**, numa virtual thread do Tomcat (`spring.threads.virtual.enabled`): bloquear esperando frames custa quase nada e **não esbarra no timeout de requisições assíncronas** do Spring MVC (que cortaria um `StreamingResponseBody` longo). Encerra após 120 s sem áudio e quando o navegador desconecta (`IOException`).
+- **Só existe áudio quando o bot toca num canal de voz:** o `provideFrame()` só roda quando o Discord pede um frame. Sem player no servidor, o endpoint responde `404`; sem música, o botão **Ouvir** nem aparece na UI.
+- **UI:** a barra flutuante inferior (`listenBar`) fica **fora** das áreas atualizadas pelo HTMX, para o polling de 2 s não derrubar o `<audio>`. O volume é local (`audio.volume`) e não mexe no volume do bot. A cada clique o `src` ganha um `?t=` novo para o navegador não reaproveitar um stream antigo.
 
 ---
 
@@ -616,6 +697,7 @@ Duas limitações conscientes:
 | `CommandRegistrarTest` | Todos os comandos registrados, subcomandos agrupados, guild-only, **tradução completa** |
 | `HelpCatalogTest` | Todo comando e subcomando tem resumo e exemplos, e os exemplos começam com o nome do próprio comando |
 | `AdminPanelTest` | Telas renderizam de verdade (Thymeleaf), login, CSRF, toast |
+| `OggOpusWriterTest` | Cabeçalhos Ogg/Opus, uma página por pacote, CRC e *granule position* corretos |
 | `SabadacoApplicationTests` | O contexto Spring inteiro sobe (JDA mockado) |
 
 Os testes do núcleo não sobem Spring nem Discord: são classes simples com mocks do Lavaplayer, o que só é possível porque o núcleo não depende do JDA.
@@ -652,7 +734,18 @@ Além da classe, três coisas são obrigatórias, e as duas últimas têm teste 
 
 **Novo armazenamento:** implemente `PlaylistRepository` com `@ConditionalOnProperty(..., havingValue = "jpa")`.
 
-**Nova reação a eventos do player:** um `@EventListener` recebendo `PlayerEvent`. Lembre de não fazer trabalho pesado na thread do evento.
+**Novo gráfico na aba Métricas:**
+1. **Dado novo?** Se o valor ainda não existe na `MetricsSample`, acrescente um campo no record e preencha-o em `MetricsSampler.toSample` (para contadores acumulados, grave a diferença para a foto anterior, como os demais). Se for um total ou ranking, ponha no `Summary` do `MetricsController`.
+2. **Declare o gráfico** em `static/js/metrics.js`, dentro do grupo desejado em `GROUPS`; nada de HTML novo. Um gráfico de série no tempo:
+   ```js
+   { id: 'mu-queue', title: 'Músicas na fila', sub: 'todos os servidores', type: 'area',
+     series: [{ label: 'Na fila', slot: 3, value: (s) => s.queued }] }
+   ```
+   `type` aceita `line`, `area`, `bar`, `stacked` e `hbar` (ranking: use `ranking: (c) => c.summary?.topTracks ?? []` no lugar de `series`). `slot` é a cor categórica (`--series-N`); mantenha a mesma cor para a mesma coisa em todos os gráficos. KPIs vão em `kpis` do mesmo grupo.
+3. Um **grupo novo** é só um novo objeto em `GROUPS` (a aba e o botão são criados sozinhos).
+O botão **Tabela**, a legenda com o valor atual e a janela 2/5/15 min vêm de graça.
+
+**Nova reação a eventos do player:** um `@EventListener` recebendo `PlayerEvent`. Lembre de não fazer trabalho pesado na thread do evento. Para reagir ao fim de **comandos e botões**, escute `InteractionExecuted` do mesmo jeito.
 
 ---
 
@@ -662,5 +755,8 @@ Além da classe, três coisas são obrigatórias, e as duas últimas têm teste 
 - O bot não sai sozinho do canal quando fica vazio.
 - Servidor de cipher do YouTube público, sem garantia de uptime.
 - Download por música não é exato (ver [7](#7-métricas)).
+- O histórico da aba Métricas fica só em memória (15 min) e some ao reiniciar; para histórico longo use o Prometheus.
+- "Ouvir pelo painel" só funciona com o bot tocando, e tem alguns segundos de atraso (buffer do navegador); cada ouvinte é uma conexão aberta com o servidor.
+- Os gráficos e a fonte do painel vêm de CDN (Chart.js, Google Fonts): o navegador do admin precisa de internet para vê-los.
 - Um único processo por token: duas instâncias com o mesmo token recebem os mesmos eventos.
 - **YouTube exige login nos clients padrão** desde ago/2026 ([youtube-source#240](https://github.com/lavalink-devs/youtube-source/issues/240)). A 1.18.2 (última release) não toca nada anonimamente. O build usa o **snapshot `2be8e54`** do youtube-source, em que o client **IOS** volta a tocar sem login, com a ordem de clients `MUSIC, WEB, IOS, ANDROID_VR, WEB_EMBEDDED` (WEB antes do IOS porque a busca para no primeiro client que responde e o IOS responde vazio). Quando sair uma release com essas correções, trocar o snapshot por ela. Se o IOS também for bloqueado, o fallback é o OAuth no client TV (`YOUTUBE_OAUTH_ENABLED`) com conta descartável.

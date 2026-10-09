@@ -20,8 +20,10 @@ Para entender o que cada peça faz, veja [ARQUITETURA.md](ARQUITETURA.md). Para 
 13. [K. Métricas](#k-métricas)
 14. [L. Docker](#l-docker)
 15. [M. Ajuda (`/help`)](#m-ajuda-help)
-16. [N. Em desenvolvimento (a confirmar)](#n-em-desenvolvimento-a-confirmar)
-17. [Resumo dos resultados](#resumo-dos-resultados)
+16. [N. Nova interface do admin](#n-nova-interface-do-admin)
+17. [O. Aba Métricas (tempo real)](#o-aba-métricas-tempo-real)
+18. [P. Ouvir a música pelo painel](#p-ouvir-a-música-pelo-painel)
+19. [Resumo dos resultados](#resumo-dos-resultados)
 
 ---
 
@@ -89,6 +91,18 @@ Entre num canal de voz do servidor de teste com a **sua conta**. Quase todos os 
 ### 1.6 Se o YouTube não tocar
 
 Se algum teste de reprodução falhar com `This video requires login` ou nada tocar, veja o `.env.example` (`YOUTUBE_OAUTH_ENABLED`, com conta Google descartável) e a seção "Limitações conhecidas" do [ARQUITETURA.md](ARQUITETURA.md#12-limitações-conhecidas). Isso é do YouTube, não dos casos de teste abaixo.
+
+### 1.7 Testar só o painel, sem Discord
+
+Para mexer no visual do admin (temas, abas, gráficos) sem token nem servidor, rode no seu computador:
+
+```bash
+./gradlew bootTestRun
+```
+
+Isso sobe o app com o JDA **simulado**, playlists de exemplo e **tráfego simulado** nos gráficos; entre em http://localhost:8080 com usuário `admin` e senha `admin`. Se a porta 8080 estiver ocupada (por exemplo, pelo bot em Docker), use `SERVER_PORT=8081 ./gradlew bootTestRun` e abra http://localhost:8081. Neste modo **não há áudio real**: os testes de "ouvir" (grupo P) e os de gráficos reagindo a comandos precisam do bot de verdade.
+
+> O painel carrega a fonte Geist (Google Fonts) e a biblioteca de gráficos Chart.js (cdnjs). Para ver o visual completo, o **navegador** precisa de internet; sem ela o painel abre com a fonte padrão, mas a aba Métricas fica sem gráficos.
 
 ---
 
@@ -861,7 +875,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 - **Esperado:**
   - Passo 1: redireciona para a tela de login.
   - Passo 2: não entra (volta ao login com erro).
-  - Passo 3: abre a página **Servidores**, com o menu `🎶 Sabadaço · Servidores · Playlists · Métricas · Sair`.
+  - Passo 3: abre a página **Servidores**, com a barra lateral `🎶 Sabadaço · Servidores · Métricas · Playlists · Tema · Sair`.
   - Passo 4: volta à tela de login e `/admin` volta a pedir senha.
 - [ ] passou
 
@@ -876,7 +890,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 - **Esperado:**
   - O cartão mostra o selo `tocando`/`pausado`/`parado`, capa, título em link, autor, barra de progresso, `tempo / duração · N na fila · vol X% · Y transmitidos`.
   - Os dados se atualizam sozinhos a cada ~2 s, sem recarregar. Servidores tocando vêm primeiro.
-  - Contadores do topo: `baixados das fontes`, `enviados ao Discord`, `músicas tocadas`, `comandos`, `buscas` crescem conforme você usa o bot (atualizam ao recarregar a página).
+  - Os cartões do topo (`Baixado das fontes`, `Enviado ao Discord`, `Músicas tocadas`, `Comandos`, `Buscas`) crescem conforme você usa o bot (atualizam ao recarregar a página).
 - [ ] passou
 
 ### T59. Pausar, pular e parar pelo admin (e o Discord acompanha)
@@ -1036,16 +1050,16 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 
 ## K. Métricas
 
-### T71. `/actuator/prometheus` pede senha
+### T71. `/actuator/prometheus` só na porta de gerenciamento
 
-- **Objetivo:** só quem tem as credenciais lê as métricas.
+- **Objetivo:** o Prometheus coleta pela porta 8081 (só dentro do cluster) e o painel na 8080 segue com login.
 - **Passos:**
-  1. Abra http://localhost:8080/actuator/prometheus sem login (janela anônima) ou rode `curl -i http://localhost:8080/actuator/prometheus`.
-  2. Rode `curl -u admin:SUA_SENHA http://localhost:8080/actuator/prometheus` (troque usuário e senha pelos de `ADMIN_USER`/`ADMIN_PASSWORD`).
-  3. Abra http://localhost:8080/actuator/health sem login.
+  1. Rode `curl -i http://localhost:8081/actuator/prometheus`.
+  2. Rode `curl -i http://localhost:8081/actuator/metrics`.
+  3. Abra http://localhost:8081/actuator/health sem login.
 - **Esperado:**
-  - Passo 1: sem autenticação, `401`/redirecionamento ao login.
-  - Passo 2: texto de métricas do Prometheus.
+  - Passo 1: `200` com o texto de métricas, sem pedir senha.
+  - Passo 2: `401` (só o `/actuator/prometheus` fica aberto).
   - Passo 3: `{"status":"UP"}` sem pedir senha.
 - [ ] passou
 
@@ -1054,7 +1068,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 - **Objetivo:** as métricas do bot são geradas e crescem com o uso.
 - **Pré-condição:** já tocou algumas músicas, pulou uma, fez buscas e comandos.
 - **Passos:**
-  1. `curl -s -u admin:SUA_SENHA http://localhost:8080/actuator/prometheus | grep sabadaco_`
+  1. `curl -s http://localhost:8081/actuator/prometheus | grep sabadaco_`
   2. Toque e pule mais uma música, repita o comando e compare.
 - **Esperado:**
   - Aparecem séries com o prefixo `sabadaco_` (o Prometheus troca `.` por `_` e acrescenta sufixos como `_total` e `_seconds`):
@@ -1071,6 +1085,7 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
     | `sabadaco_playlists_saved` | quantidade de playlists |
     | `sabadaco_commands` / `sabadaco_components` | tempo/contagem por `command`/`component` e `outcome` |
     | `sabadaco_searches` | buscas, com `outcome` (`found`/`empty`/`cached`) |
+    | `sabadaco_interactions_latency` | tempo de resposta de comandos e botões, com os percentis p50/p95/p99 (janela de 2 min) |
 
   - Os valores aumentam depois do passo 2 (por exemplo `sabadaco_tracks_played`, `sabadaco_commands` com `command="play"`, `sabadaco_track_listened` com `reason="REPLACED"` depois de um skip).
   - Repetir a mesma busca faz `outcome="cached"` subir.
@@ -1149,46 +1164,233 @@ Antes de começar o grupo A, o bot não deve ter nada tocando. Se tiver, use `/s
 
 ---
 
-## N. Em desenvolvimento (a confirmar)
+## N. Nova interface do admin
 
-> **Atenção:** esta seção descreve funcionalidades **ainda em implementação**. Os passos e resultados abaixo são a **intenção**, não o comportamento final. Eles serão **revisados quando a implementação terminar**, e cada teste que for entregue sai daqui e ganha os passos reais nos grupos acima. Não conte estes resultados como validação até lá.
+> Visual novo do painel: temas **creme** (claro, bege bem clarinho) e **escuro**, barra lateral, animações e KPIs. Estes testes valem para todas as telas (Servidores, Métricas, Playlists).
 
-### TD01. Admin: temas escuro e creme claro *(a confirmar)*
+### T78. Alternar o tema e manter a escolha
 
-- **Objetivo:** nova aparência do painel admin.
+- **Objetivo:** trocar entre creme e escuro e lembrar a escolha.
 - **Passos:**
-  1. Abra o admin.
-- **Esperado (a confirmar):**
-  - O painel usa o tema **escuro** ou o **creme claro**, de forma legível em todas as telas (servidores, servidor, playlists).
+  1. Abra o admin e clique em **Tema** na barra lateral.
+  2. Clique de novo.
+  3. Deixe no tema **escuro** e recarregue a página (F5). Navegue para **Métricas** e **Playlists**.
+  4. Deixe no **creme**, feche a aba, abra o admin de novo.
+- **Esperado:**
+  - Cada clique troca o tema na hora, em toda a página (fundo, cartões, textos, botões); no creme o fundo é um bege bem clarinho, nunca branco puro nem cinza.
+  - Depois de recarregar ou navegar, o tema escolhido **continua** e a página já abre nele, **sem piscar** o tema errado antes de pintar.
+  - Na aba Métricas, trocar o tema também troca as cores dos gráficos (sem recarregar) e todos continuam legíveis nos dois temas.
 - [ ] passou
 
-### TD02. Admin: alternar tema *(a confirmar)*
+### T79. Sem escolha, segue o sistema operacional
 
-- **Objetivo:** trocar entre escuro e creme claro.
+- **Objetivo:** primeiro acesso respeita o tema do sistema.
+- **Pré-condição:** navegador sem escolha salva (janela anônima, ou apague `sabadaco-theme` do armazenamento local do site).
 - **Passos:**
-  1. Use o controle de alternância de tema do painel.
+  1. Com o sistema/navegador em modo **claro**, abra o admin.
+  2. Mude o sistema para o modo **escuro** e abra o admin em outra janela anônima.
+- **Esperado:**
+  - Modo claro abre no tema creme; modo escuro abre no tema escuro.
+- [ ] passou
+
+### T80. Barra lateral, navegação e animações
+
+- **Objetivo:** o menu e o "jeito" do painel.
+- **Passos:**
+  1. Olhe a barra lateral: **Servidores**, **Métricas**, **Playlists**, **Tema**, **Sair**.
+  2. Clique em cada item de página. Observe a animação ao abrir cada página.
+  3. Passe o mouse sobre os cartões (KPIs e servidores).
+- **Esperado:**
+  - O item da página atual aparece destacado no menu.
+  - Cada página entra com uma animação suave; os cartões **sobem um pouco** ao passar o mouse; os números dos KPIs **contam até o valor** ao abrir.
+  - **Sair** encerra a sessão (T57).
+- [ ] passou
+
+### T81. Celular: barra superior
+
+- **Objetivo:** o layout se adapta a telas estreitas.
+- **Passos:**
+  1. No navegador do computador, abra as ferramentas de desenvolvedor (F12) e ative o modo de dispositivo móvel (ou diminua a janela para menos de ~860 px), ou abra o admin no navegador do celular (use o IP do computador na rede, ex.: `http://192.168.x.x:8080`).
+  2. Navegue pelas páginas.
+- **Esperado:**
+  - A barra lateral vira uma **barra superior** com os mesmos itens; nada vaza para o lado e não aparece rolagem horizontal da página.
+  - Cartões, tabelas, abas e gráficos continuam usáveis.
+- [ ] passou
+
+### T82. Servidores: KPIs e cartões
+
+- **Objetivo:** a tela inicial nova.
+- **Pré-condição:** música tocando.
+- **Passos:**
+  1. Abra **Servidores**.
+  2. Toque mais algumas músicas, use alguns comandos e recarregue a página.
+  3. Clique em `ver métricas →`.
+- **Esperado:**
+  - KPIs: `Baixado das fontes`, `Enviado ao Discord`, `Músicas tocadas`, `Comandos` e `Buscas`, que crescem conforme o uso.
+  - O cartão de cada servidor mostra capa, título, autor, barra de progresso e botões com ícones (pausar/continuar, pular, parar) e, com música tocando, o botão **Ouvir**.
+  - `ver métricas →` abre a aba Métricas.
+- [ ] passou
+
+### T83. Respeita "reduzir movimento"
+
+- **Objetivo:** as animações podem ser desligadas.
+- **Passos:**
+  1. Ative no sistema operacional a opção de **reduzir movimento/animações** (Windows: Configurações → Acessibilidade → Efeitos visuais → Efeitos de animação desligado), ou emule `prefers-reduced-motion: reduce` nas ferramentas de desenvolvedor do navegador.
+  2. Recarregue o admin e navegue.
+- **Esperado:**
+  - Sem animações de entrada, sem efeito de subida no hover e sem mola no indicador das abas. Tudo continua funcionando.
+- [ ] passou
+
+---
+
+## O. Aba Métricas (tempo real)
+
+> Abra **Métricas** no menu (`/admin/metrics`). A aba busca dados a cada 2 s e guarda os últimos 15 minutos. Para os testes de "gráficos se mexendo", use o bot de verdade no Discord com música tocando.
+
+### T84. Grupos em abas, com animação
+
+- **Objetivo:** navegar pelos 7 grupos.
+- **Passos:**
+  1. Abra **Métricas** e olhe a barra de abas.
+  2. Clique em cada aba, em sequência e fora de ordem. Observe o indicador sob a aba e a entrada do conteúdo.
+  3. Escolha uma aba (ex.: `Sistema`) e recarregue a página.
+- **Esperado:**
+  - 7 abas: **Visão geral**, **Música**, **Comandos**, **Usuários**, **Playlists**, **Sistema**, **Discord**.
+  - Cada uma mostra seus KPIs no topo e os gráficos abaixo. O indicador da aba **desliza com um pequeno efeito de mola** até a aba clicada e o conteúdo entra com um leve "pop"; KPIs contam até o valor e as barras nascem crescendo.
+  - Ao recarregar, a página volta na **mesma aba** que você deixou.
+  - O texto `ao vivo` no canto superior indica que está atualizando.
+- [ ] passou
+
+### T85. Janela de tempo 2 / 5 / 15 min
+
+- **Objetivo:** mudar o intervalo visível.
+- **Pré-condição:** bot no ar há pelo menos 3 minutos (para ver diferença entre as janelas).
+- **Passos:**
+  1. Na aba **Visão geral**, clique em **2 min**, depois **5 min**, depois **15 min**.
   2. Recarregue a página.
-- **Esperado (a confirmar):**
-  - O tema muda na hora; a escolha pode ser lembrada ao recarregar (a confirmar).
+- **Esperado:**
+  - Os gráficos de tempo mostram só o intervalo escolhido; os totais das barras e as legendas se recalculam para a janela.
+  - Em janelas longas as barras são **agrupadas em no máximo 30 colunas**, sem virar um pente ilegível.
+  - A janela escolhida é lembrada ao recarregar.
+  - A página já abre com o histórico preenchido (até 15 min), sem começar em branco.
 - [ ] passou
 
-### TD03. Admin: aba de gráficos em tempo real *(a confirmar)*
+### T86. Pausar e retomar
 
-- **Objetivo:** acompanhar métricas ao vivo.
+- **Objetivo:** congelar a tela para analisar.
 - **Passos:**
-  1. Abra a **aba de gráficos** do admin com música tocando.
-  2. Toque, pule, faça buscas e comandos.
-- **Esperado (a confirmar):**
-  - Gráficos **em tempo real** agrupados por **seção** (por exemplo áudio, fila, comandos, buscas), que se movem conforme o uso, sem recarregar a página.
+  1. Com a aba **Música** aberta e música tocando, clique em **⏸ Pausar**.
+  2. Espere uns 20 segundos e olhe: os gráficos devem estar parados. Passe o mouse sobre eles.
+  3. Clique em **Retomar**.
+- **Esperado:**
+  - Pausado: gráficos e KPIs param de se mover, o status deixa de ser `ao vivo` e o botão vira **Retomar**. O tooltip continua funcionando ao passar o mouse.
+  - Ao retomar: o status volta a `ao vivo` e os gráficos alcançam o presente (o histórico continua sendo coletado no servidor enquanto a tela está pausada).
 - [ ] passou
 
-### TD04. Admin: ouvir a música pela interface *(a confirmar)*
+### T87. Botão "Tabela"
 
-- **Objetivo:** escutar no navegador o que o bot está tocando.
+- **Objetivo:** alternativa acessível aos gráficos.
 - **Passos:**
-  1. Com música tocando, use o controle de ouvir da interface do admin.
-- **Esperado (a confirmar):**
-  - O áudio toca no navegador, acompanhando a música do servidor; dá para ligar e desligar sem afetar o canal de voz.
+  1. Em qualquer gráfico, clique em **Tabela**.
+  2. Clique de novo para voltar ao gráfico.
+  3. Faça o mesmo num gráfico de barras horizontais (ex.: `Mais tocadas`).
+- **Esperado:**
+  - O gráfico dá lugar a uma tabela com os mesmos dados (horário e valores por série; nos rankings, nome e valor), legível nos dois temas.
+  - Voltar mostra o gráfico de novo, sem perder a janela escolhida.
+- [ ] passou
+
+### T88. Gráficos se mexem ao usar o bot
+
+- **Objetivo:** confirmar que os gráficos refletem o uso real.
+- **Pré-condição:** bot no Discord com você no canal de voz; deixe a aba Métricas aberta (janela **2 min**) ao lado do Discord.
+- **Passos:**
+  1. Em **Visão geral**, toque uma música com `/play` (`/tocar`) e acompanhe `Áudio enviado ao Discord` (KB/s) e o KPI `Tocando agora`.
+  2. Dê vários comandos seguidos (`/queue`, `/pause`, `/pause`, `/skip`, e cliques nos botões do painel) e acompanhe `Comandos executados` e o KPI `Comandos /min`.
+  3. Na aba **Comandos**, provoque um erro (ex.: `/play` fora do canal de voz, como no T05) e veja o gráfico `Erros`.
+  4. Na aba **Música**, adicione e pule músicas e veja `Músicas iniciadas` e `Músicas na fila`.
+  5. Na aba **Discord**, faça uma `/search` (`/buscar`), repita a **mesma** busca e veja `Buscas no YouTube` (do YouTube × do cache).
+  6. Na aba **Usuários**, use o bot também com a segunda conta (T40) e veja `Usuários ativos`.
+- **Esperado:**
+  - Em poucos segundos (até ~4 s) aparecem: o tráfego de áudio subindo enquanto toca (e caindo a zero pausado), barras de comandos a cada comando, barra no gráfico de erros, músicas iniciadas e fila variando, a segunda busca contada como **do cache** e os usuários ativos subindo.
+  - `Tempo de resposta` mostra média, p95 e p99 (a linha **Média** some nos intervalos sem comandos; p95 e p99 usam uma janela móvel de 2 min).
+  - `Comandos por tipo` empilha os 5 comandos mais usados + `outros`, e **a cor de cada comando fica fixa** (não troca de lugar quando o ranking muda).
+- [ ] passou
+
+### T89. KPIs, legendas e rankings por grupo
+
+- **Objetivo:** conferir os números de cada grupo.
+- **Pré-condição:** já tocou várias músicas, usou comandos e tem playlists (o uso dos testes anteriores serve).
+- **Passos:**
+  1. Percorra os grupos e confira:
+     - **Visão geral:** KPIs `Tocando agora`, `Ouvintes`, `Comandos /min`, `Resposta p95`, `CPU do bot`, `Memória heap`; gráficos `Áudio enviado ao Discord` e `Comandos executados`.
+     - **Música:** `Músicas tocadas`, `Falhas ao tocar`, `Enviado ao Discord`, `Baixado das fontes` (MB); gráficos `Tráfego de áudio` (enviado × baixado), `Músicas iniciadas`, `Músicas na fila` e o ranking `Mais tocadas`.
+     - **Comandos:** `Comandos`, `Erros na janela`, `p95`, `p99`; gráficos `Tempo de resposta`, `Comandos por tipo`, `Erros` e o ranking `Mais usados` (comandos como `/nome`, botões com 🔘).
+     - **Usuários:** `Ativos (5 min)`, `Ativos (1 h)`, `Já usaram o bot`, `Ouvintes agora`; gráficos `Usuários ativos`, `Ouvintes em canais de voz` e o ranking `Quem mais usa` (com os nomes das pessoas).
+     - **Playlists:** `Playlists`, `Músicas salvas`, `Com apelido`, `Tocadas de playlist`; gráficos `Playlists por escopo` (servidor × global), `Músicas tocadas por origem` (avulsas × playlist) e `Maiores playlists`.
+  2. Compare alguns números com a realidade (quantas playlists você tem, quantas músicas tocou).
+- **Esperado:**
+  - Cada gráfico tem **legenda sempre visível**: nas linhas e áreas, com o **valor atual**; nas barras, com o **total na janela**. O tooltip mostra o valor exato ao passar o mouse.
+  - Os números batem com a realidade (ex.: `Playlists` igual ao total da tela **Playlists**; `Músicas tocadas` igual ao `sabadaco_tracks_played` do T72).
+  - Os rankings listam no máximo 6 itens, do maior para o menor; sem dados mostram um estado vazio, sem erro.
+- [ ] passou
+
+### T90. Sistema e Discord
+
+- **Objetivo:** saúde do bot e da conexão.
+- **Passos:**
+  1. Aba **Sistema**: confira `CPU do bot`, `CPU total consumida`, `Heap`, `Threads`, `No ar há` e os gráficos `CPU` (bot × máquina), `Memória` (heap usado, heap reservado, fora do heap), `Pausas de GC` e `Threads de plataforma`.
+  2. Aba **Discord**: confira `Servidores`, `Conexões de voz`, `Ping do gateway`, `Buscas na janela` e os gráficos `Ping do gateway` e `Buscas no YouTube`.
+  3. Toque algo (`/play`) e depois `/stop`, observando `Conexões de voz`.
+- **Esperado:**
+  - A CPU do bot sobe enquanto toca ou carrega e a da máquina é maior ou igual; o heap sobe e desce com a coleta de lixo; `No ar há` bate com o tempo desde que o container subiu.
+  - `Servidores` bate com os servidores onde o bot está; `Conexões de voz` vai a 1 ao tocar e volta a 0 depois do `/stop`; o ping do gateway tem um valor razoável (dezenas a poucas centenas de ms).
+- [ ] passou
+
+---
+
+## P. Ouvir a música pelo painel
+
+> O painel transmite para o seu navegador **exatamente o áudio que o bot envia ao Discord**. Só há áudio enquanto o bot está tocando num canal de voz. Funciona no Chrome, Edge e Firefox. Se você também estiver no canal de voz com o som aberto, vai ouvir duas vezes (uma pelo Discord e outra pelo painel); use fones ou silencie um dos dois.
+
+### T91. Ouvir pelo painel
+
+- **Objetivo:** escutar no navegador o que toca no Discord.
+- **Pré-condição:** música tocando no Discord (T01) e você logado no admin.
+- **Passos:**
+  1. Em **Servidores**, no cartão do servidor, clique em **Ouvir**.
+  2. Escute alguns segundos. Depois pause e continue a música no Discord (`/pause` duas vezes).
+  3. Dê `/skip` para a próxima música.
+- **Esperado:**
+  - Surge uma **barra flutuante** na parte de baixo com o título, o nome do servidor, um equalizador animado, o controle de volume e o botão de parar.
+  - Em poucos segundos o áudio toca no navegador, a mesma música do Discord, com um pequeno atraso.
+  - A atualização automática dos cartões a cada 2 s não derruba o áudio nem fecha a barra.
+  - Com o bot pausado o navegador fica em silêncio e volta junto com ele.
+- [ ] passou
+
+### T92. Volume local, parar e a página do servidor
+
+- **Objetivo:** controles da barra e o botão na página do servidor.
+- **Passos:**
+  1. Com a barra aberta (T91), arraste o **volume** até o meio, depois até zero e até o máximo.
+  2. Confirme no Discord que o volume do bot (`🔊 N%` do painel) **não** mudou.
+  3. Clique no botão de **parar** da barra.
+  4. Abra a página do servidor (clique no nome do servidor) e clique em **🎧 Ouvir**.
+- **Esperado:**
+  - O volume da barra altera só o que **você** ouve no navegador; o volume do bot e o áudio do canal de voz não mudam.
+  - Parar fecha a barra e interrompe o áudio do navegador, mas **não afeta** a música no Discord, que continua tocando.
+  - Na página do servidor, **🎧 Ouvir** abre a mesma barra, com o título e o servidor, e o áudio toca.
+- [ ] passou
+
+### T93. Ouvir sem música tocando
+
+- **Objetivo:** o botão só aparece quando há música.
+- **Pré-condição:** `/stop` (nada tocando).
+- **Passos:**
+  1. Abra **Servidores** e a página do servidor.
+  2. Abra direto no navegador `http://localhost:8080/admin/guilds/<ID do servidor>/listen` (copie o ID da URL da página do servidor).
+- **Esperado:**
+  - Não existe o botão **Ouvir** nos cartões nem **🎧 Ouvir** na página do servidor.
+  - A URL direta responde `404` ("Nada tocando neste servidor") se o servidor ainda não tem player desde que o bot subiu. Se já tocou antes, o endpoint pode abrir e ficar sem áudio até haver música, encerrando sozinho após cerca de 2 minutos sem áudio.
 - [ ] passou
 
 ---
@@ -1269,14 +1471,26 @@ Preencha **OK**, **FALHOU** ou **N/A** e anote observações. Data do teste: ___
 | T68 | Admin | Mover e remover música | |
 | T69 | Admin | Apagar playlist | |
 | T70 | Admin | Erros (toast e mensagem) | |
-| T71 | Métricas | `/actuator/prometheus` com senha | |
+| T71 | Métricas | `/actuator/prometheus` na porta 8081 | |
 | T72 | Métricas | Métricas `sabadaco_*` | |
 | T73 | Docker | Restart perde playlists (esperado) | |
 | T74 | Ajuda | `/help` lista por categoria | |
 | T75 | Ajuda | `/help` detalhes e exemplos pelo select | |
 | T76 | Ajuda | `/help` botão voltar | |
 | T77 | Ajuda | `/help comando:<nome>` direto | |
-| TD01 | Em desenvolvimento | Admin: temas escuro e creme claro | |
-| TD02 | Em desenvolvimento | Admin: alternar tema | |
-| TD03 | Em desenvolvimento | Admin: gráficos em tempo real | |
-| TD04 | Em desenvolvimento | Admin: ouvir a música pela UI | |
+| T78 | Admin UI | Alternar tema e manter a escolha | |
+| T79 | Admin UI | Sem escolha, segue o sistema operacional | |
+| T80 | Admin UI | Barra lateral, navegação e animações | |
+| T81 | Admin UI | Celular: barra superior | |
+| T82 | Admin UI | Servidores: KPIs e cartões | |
+| T83 | Admin UI | Respeita reduzir movimento | |
+| T84 | Métricas (aba) | Grupos em abas, com animação | |
+| T85 | Métricas (aba) | Janela 2 / 5 / 15 min | |
+| T86 | Métricas (aba) | Pausar e retomar | |
+| T87 | Métricas (aba) | Botão Tabela | |
+| T88 | Métricas (aba) | Gráficos se mexem ao usar o bot | |
+| T89 | Métricas (aba) | KPIs, legendas e rankings por grupo | |
+| T90 | Métricas (aba) | Sistema e Discord | |
+| T91 | Ouvir | Ouvir pelo painel | |
+| T92 | Ouvir | Volume local, parar e página do servidor | |
+| T93 | Ouvir | Ouvir sem música tocando | |

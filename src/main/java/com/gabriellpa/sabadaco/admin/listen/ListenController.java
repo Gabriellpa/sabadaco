@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class ListenController {
 
-    /** ~5 s de áudio: se o navegador ficar para trás, frames velhos são descartados em vez de travar o bot. */
+    /** ~5 s de áudio. Se o navegador ficar para trás, os frames mais antigos são descartados (ver {@link #keepLatest}). */
     private static final int BUFFER_FRAMES = 250;
     /** Sem áudio (pausado/parado) por este tempo, encerra o stream. */
     private static final long IDLE_TIMEOUT_SECONDS = 120;
@@ -46,7 +47,7 @@ public class ListenController {
         var frames = new ArrayBlockingQueue<byte[]>(BUFFER_FRAMES);
         var out = response.getOutputStream();
         var ogg = new OggOpusWriter(out);
-        try (var ignored = player.tap(frames::offer)) {
+        try (var ignored = player.tap(frame -> keepLatest(frames, frame))) {
             ogg.writeHeaders();
             out.flush();
             long idleSince = System.nanoTime();
@@ -70,6 +71,16 @@ public class ListenController {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.warn("Falha no stream de áudio da guild {}: {}", guildId, e.getMessage());
+        }
+    }
+
+    /**
+     * Roda na thread de áudio do bot, então nunca bloqueia: com a fila cheia (navegador lento),
+     * descarta o frame mais antigo para o ouvinte continuar "ao vivo" em vez de ficar atrasado.
+     */
+    static void keepLatest(BlockingQueue<byte[]> frames, byte[] frame) {
+        while (!frames.offer(frame)) {
+            frames.poll();
         }
     }
 }
