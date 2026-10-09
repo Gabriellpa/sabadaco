@@ -21,7 +21,7 @@ docker compose up -d --build
 docker compose logs -f    # a senha do painel aparece aqui se ADMIN_PASSWORD estiver vazio
 ```
 
-O painel fica em http://localhost:8080. Por padrão as playlists ficam em memória e se perdem ao recriar o container; com `STORAGE_TYPE=mongo` e `MONGODB_URI` elas vão para o MongoDB (em produção, ver [deploy/mongo/README.md](deploy/mongo/README.md)).
+O painel fica em http://localhost:8080. Por padrão as playlists ficam em memória e se perdem ao recriar o container; com `STORAGE_TYPE=mongo` e `MONGODB_URI` elas vão para o MongoDB (em produção, o Mongo, o backup e o dashboard do Grafana ficam no repo [infra-apps](https://github.com/Gabriellpa/infra-apps/tree/main/apps/sabadaco)).
 
 ### O que é `DISCORD_DEV_GUILD_ID`
 
