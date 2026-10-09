@@ -60,6 +60,19 @@ public class AdminViews {
 
     // Helpers usados nos templates
 
+    /**
+     * {@code --art: url(...)} para a capa desfocada atrás do player. Só http(s), com aspas, parênteses e barras
+     * invertidas codificados, para uma URL de capa não conseguir escapar do {@code url()}.
+     */
+    public String artStyle(String artworkUrl) {
+        if (artworkUrl == null || !(artworkUrl.startsWith("https://") || artworkUrl.startsWith("http://"))) {
+            return null;
+        }
+        var safe = artworkUrl.replace("\\", "%5C").replace("'", "%27").replace("\"", "%22")
+                .replace("(", "%28").replace(")", "%29").replace(";", "%3B").replace("\n", "").replace("\r", "");
+        return "--art: url('" + safe + "')";
+    }
+
     public String duration(long millis) {
         return Format.duration(millis);
     }
