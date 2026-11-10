@@ -48,6 +48,8 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / aleatória | Login do painel e basic auth do `/actuator/prometheus` |
 | `YOUTUBE_CIPHER_URL` / `YOUTUBE_CIPHER_PASSWORD` | `https://cipher.kikkia.dev/api` | Servidor de cipher do YouTube (recomendado hospedar o seu: [yt-cipher](https://github.com/kikkia/yt-cipher)) |
 | `YOUTUBE_OAUTH_ENABLED` / `YOUTUBE_OAUTH_REFRESH_TOKEN` | `false` / vazio | Login no YouTube (client TV), **só se** voltar a aparecer *"This video requires login"* (hoje o client IOS toca sem login). **Use uma conta Google descartável.** Passo a passo no `.env.example` |
+| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | vazio | Servidor de mídia do streaming de tela (LiveKit Cloud). Sem eles o `/stream` fica desativado |
+| `STREAM_PUBLIC_URL` | `http://localhost:8080` | Endereço público do bot (o do Cloudflare Tunnel), usado nos links das streams |
 
 > A JVM precisa de `--enable-native-access=ALL-UNNAMED` (já configurado no `bootRun`/`test`) por causa do JDAVE.
 > O Discord exige o protocolo **DAVE** (E2EE) em toda conexão de voz desde 01/03/2026; sem ele o bot não toca.
@@ -139,6 +141,16 @@ Para um subcomando de um grupo existente, implemente `Subcommand` com `parent() 
 ### Como trocar o armazenamento das playlists
 
 Implemente `PlaylistRepository` (5 métodos), anote com `@ConditionalOnProperty(name = "sabadaco.storage.type", havingValue = "jpa")` e mude `sabadaco.storage.type` no `application.yml`.
+
+## Streaming de tela (em construção)
+
+Substituto do "Go Live" do Discord: quem abre uma stream compartilha a tela pelo navegador, e quem está no **mesmo canal de voz** assiste por um link.
+
+- O vídeo não passa pelo bot: vai do navegador para o **LiveKit** (um SFU), que repassa para cada espectador na qualidade que a internet dele aguenta. O bot só emite os acessos.
+- Cada pessoa recebe por DM o próprio **código** (uso único, 5 min). Ele abre todas as streams do canal de voz onde ela estava ao pedir. Ao entrar, ela ainda precisa estar nesse canal.
+- `POST /stream/api/{id}/join` (público, sem login do painel) troca o código pelo token do LiveKit.
+
+O núcleo fica em `stream` (sem JDA). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (LiveKit) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
 
 ## Métricas (`/actuator/prometheus`)
 

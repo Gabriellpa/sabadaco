@@ -26,6 +26,16 @@ sabadaco:
     # Login OAuth (client TV) para quando o YouTube exigir login. Use uma conta Google descartável.
     oauth-enabled: ${YOUTUBE_OAUTH_ENABLED:false}
     oauth-refresh-token: ${YOUTUBE_OAUTH_REFRESH_TOKEN:}
+  stream:
+    # Endereço público do bot (o do Cloudflare Tunnel): os links das streams enviados por DM usam ele
+    public-url: ${STREAM_PUBLIC_URL:http://localhost:8080}
+    # Validade dos códigos de entrada (uso único, por pessoa, valem para as streams do canal de voz)
+    code-ttl: ${STREAM_CODE_TTL:5m}
+    livekit:
+      # Ex.: wss://seu-projeto.livekit.cloud. Sem URL/key/secret, o /stream fica desativado.
+      url: ${LIVEKIT_URL:}
+      api-key: ${LIVEKIT_API_KEY:}
+      api-secret: ${LIVEKIT_API_SECRET:}
   admin:
     username: ${ADMIN_USER:admin}
     # Vazio = gera uma senha aleatória e mostra no log ao subir

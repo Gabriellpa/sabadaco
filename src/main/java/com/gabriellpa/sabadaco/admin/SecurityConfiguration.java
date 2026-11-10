@@ -44,7 +44,11 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(scrape).permitAll()
                         .requestMatchers("/actuator/health", "/css/**", "/js/**", "/webjars/**").permitAll()
+                        // Página e API da stream são públicas: a proteção é o código de uso único enviado por DM
+                        .requestMatchers("/stream/**").permitAll()
                         .anyRequest().authenticated())
+                // A API da stream é chamada com fetch e não usa sessão/cookie, então não precisa de token CSRF
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/stream/api/**"))
                 .formLogin(form -> form.defaultSuccessUrl("/admin", true))
                 .httpBasic(Customizer.withDefaults())
                 .logout(Customizer.withDefaults())
