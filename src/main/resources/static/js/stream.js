@@ -3,7 +3,8 @@
  *  1. troca o código (uso único) por um token do LiveKit e uma sessão da página (POST /stream/api/{id}/join);
  *  2. conecta na sala do canal de voz sem assinar nada (autoSubscribe: false) e assina só as telas escolhidas:
  *     a da stream do link e as que a pessoa adicionar com "+" (multistream sem pedir outro código);
- *  3. quem abriu uma stream compartilha a tela em 1080p60 com simulcast (720p30 e 480p15 para redes piores);
+ *  3. quem abriu uma stream compartilha a tela num dos perfis (1080p60, 1080p30 nítido, 720p30) com simulcast;
+ *     quem assiste pode limitar a qualidade de cada tela e vê resolução, fps e a conexão de quem transmite;
  *  4. o chat chega como dado da sala (enviado pelo bot) e sai por POST /stream/api/chat, que posta no Discord.
  * A sessão fica no sessionStorage da aba: com F5 a página pede outro token (POST /stream/api/resume) sem código.
  */
@@ -15,7 +16,7 @@
         document.getElementById('app').textContent = 'O cliente de vídeo não carregou. Recarregue a página.';
         return;
     }
-    const { Room, RoomEvent, Track, VideoPreset, DisconnectReason } = LK;
+    const { Room, RoomEvent, Track, VideoPreset, VideoQuality, ConnectionQuality, DisconnectReason } = LK;
     const SCREEN = Track.Source.ScreenShare;
     const SCREEN_AUDIO = Track.Source.ScreenShareAudio;
 
@@ -25,24 +26,69 @@
 
     const SESSION_KEY = 'sabadaco-stream-session:' + streamId;
     const WATCHING_KEY = 'sabadaco-stream-watching:' + streamId;
+    const PREFS_KEY = 'sabadaco-stream-prefs';
 
-    /** Captura: 1080p60, com áudio do sistema/aba quando o navegador deixa. */
-    const CAPTURE = {
-        audio: true,
-        systemAudio: 'include',
-        resolution: { width: 1920, height: 1080, frameRate: 60 },
-        contentHint: 'motion',
-        surfaceSwitching: 'include',
-        selfBrowserSurface: 'exclude',
+    /**
+     * Perfis de transmissão. Todos com simulcast: o LiveKit manda para cada pessoa a camada que a rede dela aguenta.
+     *  - jogo: 1080p60, segura o fps quando a rede aperta;
+     *  - nitidez: 1080p30, segura a resolução (texto, código, planilha);
+     *  - leve: 720p30, para internet de upload fraca.
+     */
+    const PROFILES = {
+        game: {
+            label: 'Jogo · 1080p60',
+            resolution: { width: 1920, height: 1080, frameRate: 60 },
+            contentHint: 'motion',
+            encoding: { maxBitrate: 6_000_000, maxFramerate: 60 },
+            layers: [new VideoPreset(1280, 720, 2_500_000, 30), new VideoPreset(854, 480, 900_000, 15)],
+            degradation: 'maintain-framerate',
+        },
+        detail: {
+            label: 'Nitidez · 1080p30',
+            resolution: { width: 1920, height: 1080, frameRate: 30 },
+            contentHint: 'detail',
+            encoding: { maxBitrate: 4_000_000, maxFramerate: 30 },
+            layers: [new VideoPreset(1280, 720, 1_800_000, 15), new VideoPreset(854, 480, 600_000, 10)],
+            degradation: 'maintain-resolution',
+        },
+        light: {
+            label: 'Leve · 720p30',
+            resolution: { width: 1280, height: 720, frameRate: 30 },
+            contentHint: 'motion',
+            encoding: { maxBitrate: 2_000_000, maxFramerate: 30 },
+            layers: [new VideoPreset(640, 360, 600_000, 15)],
+            degradation: 'balanced',
+        },
     };
-    /** Envio: camada cheia de até 6 Mbps e duas menores; o LiveKit entrega a que cabe na rede de cada um. */
-    const PUBLISH = {
-        videoCodec: 'vp8',
-        simulcast: true,
-        screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 },
-        screenShareSimulcastLayers: [new VideoPreset(1280, 720, 2_500_000, 30), new VideoPreset(854, 480, 900_000, 15)],
-        degradationPreference: 'maintain-framerate',
-    };
+
+    function captureOptions(profile, withAudio) {
+        return {
+            audio: withAudio,
+            systemAudio: withAudio ? 'include' : 'exclude',
+            resolution: profile.resolution,
+            contentHint: profile.contentHint,
+            surfaceSwitching: 'include',
+            selfBrowserSurface: 'exclude',
+        };
+    }
+
+    function publishOptions(profile) {
+        return {
+            videoCodec: 'vp8',
+            simulcast: true,
+            screenShareEncoding: profile.encoding,
+            screenShareSimulcastLayers: profile.layers,
+            degradationPreference: profile.degradation,
+        };
+    }
+
+    /** Limite de qualidade que quem assiste escolhe por tela (Auto = o LiveKit decide pelo tamanho da tela e pela rede). */
+    const QUALITIES = [
+        { id: 'auto', label: 'Auto', value: VideoQuality.HIGH },
+        { id: 'high', label: 'Alta', value: VideoQuality.HIGH },
+        { id: 'medium', label: 'Média', value: VideoQuality.MEDIUM },
+        { id: 'low', label: 'Baixa', value: VideoQuality.LOW },
+    ];
 
     const state = {
         room: null,
@@ -55,6 +101,8 @@
         seenMessages: new Set(),
         switching: false,
         refreshTimer: null,
+        statsTimer: null,
+        quality: new Map(), // identidade → qualidade da conexão de quem transmite
     };
 
     // ---------- armazenamento (pode falhar em aba anônima: tudo continua funcionando sem ele) ----------
@@ -63,6 +111,12 @@
         set(key, value) { try { sessionStorage.setItem(key, value); } catch { /* sem armazenamento */ } },
         remove(key) { try { sessionStorage.removeItem(key); } catch { /* sem armazenamento */ } },
     };
+    /** Preferências que valem para todas as streams (perfil e áudio de quem transmite). */
+    const prefs = Object.assign({ profile: 'game', audio: true }, parseJson(readLocal(PREFS_KEY)) || {});
+    if (!PROFILES[prefs.profile]) prefs.profile = 'game';
+
+    function readLocal(key) { try { return localStorage.getItem(key); } catch { return null; } }
+    function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* sem armazenamento */ } }
 
     // ---------- API ----------
     async function api(path, { method = 'GET', body, auth = true } = {}) {
@@ -201,16 +255,18 @@
         setStatus('connected', 'Conectado');
         const title = $('room-title');
         title.replaceChildren(el('strong', '', ticket.stream.title), document.createTextNode(' · ' + ticket.stream.hostName));
-        $('share-toggle').hidden = !state.canPublish;
+        $('share-group').hidden = !state.canPublish;
         updateShareButton();
         updateAudioButton();
         updateViewers();
         syncSubscriptions();
         startRefresh();
+        startStats();
     }
 
     function wire(room) {
         const resync = () => { updateViewers(); syncSubscriptions(); scheduleRefresh(); };
+        const people = () => renderPeople();
         room
             .on(RoomEvent.ParticipantConnected, resync)
             .on(RoomEvent.ParticipantDisconnected, (participant) => { removeTile(participant.identity); resync(); })
@@ -219,6 +275,13 @@
             .on(RoomEvent.TrackUnpublished, (publication, participant) => {
                 if (publication.source === SCREEN) removeTile(participant.identity);
                 renderStreams();
+            })
+            .on(RoomEvent.ParticipantNameChanged, people)
+            .on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+                state.quality.set(participant.identity, quality);
+                const tile = state.tiles.get(participant.identity);
+                if (tile) tile.root.dataset.connection = quality;
+                renderPeople();
             })
             .on(RoomEvent.TrackSubscribed, onTrackSubscribed)
             .on(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed)
@@ -242,6 +305,7 @@
     function onDisconnected(reason) {
         if (state.switching) return;
         state.room = null;
+        stopStats();
         clearTiles();
         if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
             forgetSession();
@@ -337,6 +401,39 @@
         });
         $('stream-count').textContent = String(state.streams.length);
         updateEmptyText();
+        renderPeople();
+    }
+
+    /** Quem está na sala: você primeiro, depois quem transmite, depois o resto por nome. */
+    function renderPeople() {
+        const list = $('people');
+        if (!state.room) return;
+        const local = state.room.localParticipant;
+        const everyone = [{ participant: local, me: true }]
+            .concat([...state.room.remoteParticipants.values()].map((participant) => ({ participant, me: false })));
+        const sharingOf = (p, me) => (me ? local.isScreenShareEnabled : !!p.getTrackPublication(SCREEN));
+        everyone.sort((a, b) => (b.me - a.me) || (sharingOf(b.participant, b.me) - sharingOf(a.participant, a.me))
+            || nameOf(a.participant).localeCompare(nameOf(b.participant), 'pt-BR'));
+        list.replaceChildren(...everyone.map(({ participant, me }) => {
+            const name = nameOf(participant);
+            const item = el('li', 'person' + (sharingOf(participant, me) ? ' live' : ''));
+            const avatar = el('span', 'avatar avatar-sm', initial(name));
+            avatar.style.setProperty('--hue', String(hueOf(name)));
+            item.append(avatar, el('span', 'person-name', me ? name + ' (você)' : name));
+            if (sharingOf(participant, me)) item.append(el('span', 'person-live', 'ao vivo'));
+            const quality = me ? null : state.quality.get(participant.identity);
+            if (quality && quality !== ConnectionQuality.Unknown) {
+                const dot = el('span', 'net net-' + quality);
+                dot.title = 'Conexão: ' + ({ excellent: 'ótima', good: 'boa', poor: 'ruim', lost: 'caiu' }[quality] || quality);
+                item.append(dot);
+            }
+            return item;
+        }));
+        $('people-count').textContent = String(everyone.length);
+    }
+
+    function nameOf(participant) {
+        return participant.name || participant.identity || 'Alguém';
     }
 
     function updateEmptyText() {
@@ -385,14 +482,21 @@
     // ---------- vídeos ----------
     function onTrackSubscribed(track, publication, participant) {
         const tile = ensureTile(participant.identity, streamOf(participant), false);
+        tile.participant = participant;
         if (track.kind === Track.Kind.Video) {
+            tile.videoTrack = track;
+            tile.videoPublication = publication;
             track.attach(tile.video);
+            applyQuality(tile);
         } else if (track.kind === Track.Kind.Audio) {
             tile.audioTrack = track;
             track.attach(tile.audio);
-            track.setVolume(Number(tile.volume.value));
+            applyVolume(tile);
             tile.volume.hidden = false;
+            tile.mute.hidden = false;
         }
+        const quality = state.quality.get(participant.identity);
+        if (quality) tile.root.dataset.connection = quality;
     }
 
     function onTrackUnsubscribed(track, publication, participant) {
@@ -402,6 +506,7 @@
 
     function addLocalTile(track) {
         const tile = ensureTile(state.identity, state.streams.find((s) => s.hostId === state.identity), true);
+        tile.videoTrack = track;
         track.attach(tile.video);
     }
 
@@ -422,6 +527,7 @@
         const label = el('div', 'tile-label');
         label.append(el('div', 'tile-title', stream ? stream.title : 'Tela'));
         label.append(el('div', 'tile-host', stream ? stream.hostName : ''));
+        const stats = el('span', 'tile-stats', local ? 'enviando…' : 'conectando…');
         const volume = document.createElement('input');
         volume.type = 'range';
         volume.min = '0';
@@ -431,17 +537,38 @@
         volume.className = 'volume';
         volume.title = 'Volume';
         volume.hidden = true;
-        const full = iconButton('⛶', 'Tela cheia', () => {
-            if (document.fullscreenElement) document.exitFullscreen();
-            else root.requestFullscreen().catch(() => {});
+        const full = iconButton('⛶', 'Tela cheia (F)', () => toggleFullscreen(root));
+        const mute = iconButton('🔊', 'Silenciar (M)', () => { tile.muted = !tile.muted; applyVolume(tile); });
+        mute.hidden = true;
+        const quality = el('button', 'quality-btn', 'Auto');
+        quality.type = 'button';
+        quality.title = 'Qualidade máxima desta tela';
+        quality.addEventListener('click', () => {
+            const index = QUALITIES.findIndex((q) => q.id === tile.quality);
+            tile.quality = QUALITIES[(index + 1) % QUALITIES.length].id;
+            applyQuality(tile);
         });
-        bar.append(label, volume, full);
+        const controls = [];
+        if (!local) controls.push(mute, volume, quality);
+        if (document.pictureInPictureEnabled) {
+            controls.push(iconButton('⧉', 'Janela flutuante', () => {
+                if (document.pictureInPictureElement === video) document.exitPictureInPicture().catch(() => {});
+                else video.requestPictureInPicture().catch(() => {});
+            }));
+        }
+        controls.push(full);
+        bar.append(label, ...controls);
         if (!local && stream) {
             bar.append(iconButton('✕', 'Parar de assistir', () => toggleWatch(stream.id)));
         }
-        root.append(video, audio, badge, bar);
-        tile = { root, video, audio, volume, audioTrack: null };
-        volume.addEventListener('input', () => { if (tile.audioTrack) tile.audioTrack.setVolume(Number(volume.value)); });
+        video.addEventListener('dblclick', () => toggleFullscreen(root));
+        root.append(video, audio, badge, stats, bar);
+        tile = {
+            root, video, audio, volume, mute, stats, local,
+            qualityButton: quality, quality: 'auto', muted: false,
+            audioTrack: null, videoTrack: null, videoPublication: null, participant: null, last: null,
+        };
+        volume.addEventListener('input', () => { tile.muted = false; applyVolume(tile); });
         state.tiles.set(identity, tile);
         // A sua tela primeiro, depois as outras na ordem em que chegaram
         transition(() => {
@@ -464,6 +591,67 @@
         }
     }
 
+    function applyVolume(tile) {
+        const level = tile.muted ? 0 : Number(tile.volume.value);
+        if (tile.audioTrack) tile.audioTrack.setVolume(level);
+        tile.mute.textContent = level === 0 ? '🔇' : '🔊';
+        tile.mute.title = level === 0 ? 'Ativar som (M)' : 'Silenciar (M)';
+    }
+
+    function applyQuality(tile) {
+        const choice = QUALITIES.find((q) => q.id === tile.quality) || QUALITIES[0];
+        tile.qualityButton.textContent = choice.label;
+        tile.qualityButton.classList.toggle('forced', choice.id !== 'auto');
+        if (tile.videoPublication) tile.videoPublication.setVideoQuality(choice.value);
+    }
+
+    function toggleFullscreen(root) {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else root.requestFullscreen().catch(() => {});
+    }
+
+    // ---------- estatísticas: resolução e fps que chegam (ou saem, para quem transmite) ----------
+    function startStats() {
+        stopStats();
+        state.statsTimer = setInterval(updateStats, 2000);
+    }
+
+    function stopStats() {
+        clearInterval(state.statsTimer);
+        state.statsTimer = null;
+    }
+
+    async function updateStats() {
+        for (const tile of state.tiles.values()) {
+            if (!tile.videoTrack) continue;
+            if (tile.local) {
+                const settings = tile.videoTrack.mediaStreamTrack ? tile.videoTrack.mediaStreamTrack.getSettings() : {};
+                const audio = state.room && state.room.localParticipant.getTrackPublication(SCREEN_AUDIO);
+                tile.stats.textContent = 'enviando ' + describe(settings.height, settings.frameRate) + (audio ? '' : ' · sem áudio');
+                continue;
+            }
+            let stats;
+            try { stats = await tile.videoTrack.getReceiverStats(); } catch { stats = null; }
+            if (!stats) continue;
+            const previous = tile.last;
+            tile.last = stats;
+            if (!previous) continue;
+            const seconds = (stats.timestamp - previous.timestamp) / 1000;
+            if (seconds <= 0) continue;
+            const fps = (stats.framesDecoded - previous.framesDecoded) / seconds;
+            const mbps = ((stats.bytesReceived || 0) - (previous.bytesReceived || 0)) * 8 / seconds / 1e6;
+            const hasAudio = tile.participant && tile.participant.getTrackPublication(SCREEN_AUDIO);
+            tile.stats.textContent = describe(stats.frameHeight, fps) + ' · ' + mbps.toFixed(1) + ' Mbps' + (hasAudio ? '' : ' · sem áudio');
+        }
+    }
+
+    function describe(height, fps) {
+        const parts = [];
+        if (height) parts.push(Math.round(height) + 'p');
+        if (fps) parts.push(Math.round(fps) + ' fps');
+        return parts.join(' · ') || '…';
+    }
+
     function clearTiles() {
         [...state.tiles.keys()].forEach(removeTile);
     }
@@ -478,8 +666,13 @@
         const participant = state.room.localParticipant;
         const button = $('share-toggle');
         button.disabled = true;
+        const enabling = !participant.isScreenShareEnabled;
+        const profile = PROFILES[prefs.profile];
         try {
-            await participant.setScreenShareEnabled(!participant.isScreenShareEnabled, CAPTURE, PUBLISH);
+            await participant.setScreenShareEnabled(enabling, captureOptions(profile, prefs.audio), publishOptions(profile));
+            if (enabling && participant.isScreenShareEnabled && prefs.audio && !participant.getTrackPublication(SCREEN_AUDIO)) {
+                toast('Transmitindo sem áudio. No Chrome/Edge, marque "Compartilhar áudio" ao escolher uma aba ou a tela inteira (janela sozinha não tem áudio).');
+            }
         } catch (error) {
             if (error && error.name !== 'NotAllowedError') toast('Não deu para compartilhar a tela: ' + error.message);
         } finally {
@@ -493,6 +686,10 @@
         const sharing = !!(state.room && state.room.localParticipant.isScreenShareEnabled);
         button.textContent = sharing ? 'Parar de compartilhar' : 'Compartilhar tela';
         button.className = 'btn ' + (sharing ? 'btn-danger' : 'btn-accent');
+        // Perfil e áudio valem a partir da próxima vez que compartilhar
+        $('share-profile').disabled = sharing;
+        $('share-audio').disabled = sharing;
+        $('share-settings').classList.toggle('locked', sharing);
     }
 
     function updateViewers() {
@@ -619,6 +816,33 @@
         });
     }
     $('share-toggle').addEventListener('click', toggleShare);
+    const profileSelect = $('share-profile');
+    Object.entries(PROFILES).forEach(([id, profile]) => {
+        const option = el('option', '', profile.label);
+        option.value = id;
+        profileSelect.append(option);
+    });
+    profileSelect.value = prefs.profile;
+    profileSelect.addEventListener('change', () => { prefs.profile = profileSelect.value; savePrefs(); });
+    const audioToggle = $('share-audio');
+    audioToggle.checked = prefs.audio;
+    audioToggle.addEventListener('change', () => { prefs.audio = audioToggle.checked; savePrefs(); });
+
+    // Atalhos: F = tela cheia da tela sob o mouse (ou a primeira), M = silenciar/ativar todas
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey || event.metaKey || event.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+        const tiles = [...state.tiles.values()];
+        if (!tiles.length) return;
+        if (event.key === 'f' || event.key === 'F') {
+            const hovered = tiles.find((tile) => tile.root.matches(':hover')) || tiles[0];
+            toggleFullscreen(hovered.root);
+        } else if (event.key === 'm' || event.key === 'M') {
+            const remote = tiles.filter((tile) => !tile.local);
+            const muteAll = remote.some((tile) => !tile.muted);
+            remote.forEach((tile) => { tile.muted = muteAll; applyVolume(tile); });
+            if (remote.length) toast(muteAll ? 'Som desligado (M para ligar)' : 'Som ligado');
+        }
+    });
     $('audio-unlock').addEventListener('click', () => state.room && state.room.startAudio().then(updateAudioButton));
     $('chat-form').addEventListener('submit', sendChat);
     $('rejoin').addEventListener('click', () => (state.session ? resume() : showJoin()));
