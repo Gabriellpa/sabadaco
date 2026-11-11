@@ -51,6 +51,7 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | vazio | Servidor de mídia do streaming de tela (LiveKit Cloud). Sem eles o `/stream` fica desativado |
 | `STREAM_PUBLIC_URL` | `http://localhost:8080` | Endereço público do bot (o do Cloudflare Tunnel), usado nos links das streams |
 | `DISCORD_MESSAGE_CONTENT` | `false` | Mostra na página da stream o chat do canal de texto. Ligue antes **Message Content Intent** no Developer Portal |
+| `DISCORD_CLIENT_SECRET` / `DISCORD_CLIENT_ID` | vazio / id do bot | Liga a stream pela **Atividade** do Discord (`/stream/activity`). No Developer Portal: Activities ligadas, URL Mappings `/` → `<host>/stream/activity` e `/livekit` → `<projeto>.livekit.cloud`, e um redirect OAuth2 `https://127.0.0.1` |
 
 > A JVM precisa de `--enable-native-access=ALL-UNNAMED` (já configurado no `bootRun`/`test`) por causa do JDAVE.
 > O Discord exige o protocolo **DAVE** (E2EE) em toda conexão de voz desde 01/03/2026; sem ele o bot não toca.

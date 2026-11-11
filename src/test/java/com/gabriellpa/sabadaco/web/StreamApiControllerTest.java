@@ -2,6 +2,8 @@ package com.gabriellpa.sabadaco.web;
 
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.admin.SecurityConfiguration;
+import com.gabriellpa.sabadaco.stream.DiscordLogin;
+import com.gabriellpa.sabadaco.stream.DiscordLogin.DiscordUser;
 import com.gabriellpa.sabadaco.stream.StreamChatService;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamService.JoinTicket;
@@ -17,12 +19,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,6 +47,8 @@ class StreamApiControllerTest {
     StreamService streams;
     @MockitoBean
     StreamChatService chat;
+    @MockitoBean
+    DiscordLogin discord;
 
     @Test
     void exchangesCodeForTokenAndSessionWithoutLogin() throws Exception {
@@ -113,5 +120,46 @@ class StreamApiControllerTest {
                         .content("{\"code\":\"ERRADO\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("Código inválido ou expirado."));
+    }
+
+    @Test
+    void activityLoginExchangesDiscordCodeAndJoinsTheChannelStream() throws Exception {
+        when(discord.exchange("discord-code")).thenReturn(new DiscordUser(2, "viewer", "access"));
+        when(streams.joinFromDiscord(10, 20, 2, "viewer"))
+                .thenReturn(new JoinTicket("wss://x", "jwt", "g10-c20", "2", false, stream, List.of(stream), "sess"));
+
+        mvc.perform(post("/stream/api/activity/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"discord-code\",\"guildId\":\"10\",\"channelId\":\"20\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access"))
+                .andExpect(jsonPath("$.ticket.token").value("jwt"))
+                .andExpect(jsonPath("$.ticket.session").value("sess"));
+    }
+
+    @Test
+    void insideDiscordTheProxyPathIsForwardedToTheApi() throws Exception {
+        // A raiz da Atividade é /stream/activity, então a página chama a API por /stream/activity/stream/api/...
+        mvc.perform(post("/stream/activity/stream/api/activity/login?x=1").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(forwardedUrl("/stream/api/activity/login?x=1"));
+        mvc.perform(get("/stream/activity/js/stream.js")).andExpect(forwardedUrl("/js/stream.js"));
+    }
+
+    @Test
+    void activityLoginOutsideAVoiceChannelIsRefused() throws Exception {
+        mvc.perform(post("/stream/api/activity/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"discord-code\",\"guildId\":\"10\",\"channelId\":null}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Abra a Atividade dentro de um canal de voz."));
+        verify(discord, never()).exchange(anyString());
+    }
+
+    @Test
+    void activityPathOnlyReachesTheStreamPage() throws Exception {
+        mvc.perform(get("/stream/activity/admin")).andExpect(status().isNotFound());
+        mvc.perform(get("/stream/activity/stream/../admin")).andExpect(status().isNotFound());
+        mvc.perform(get("/stream/activity/actuator/health")).andExpect(status().isNotFound());
+        mvc.perform(post("/stream/activity/admin/qualquer-coisa")).andExpect(status().isNotFound());
     }
 }

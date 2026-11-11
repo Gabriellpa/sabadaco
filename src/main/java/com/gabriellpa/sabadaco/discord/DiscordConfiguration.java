@@ -16,7 +16,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 @Configuration
-@EnableConfigurationProperties(DiscordProperties.class)
+@EnableConfigurationProperties({DiscordProperties.class, DiscordActivityProperties.class})
 public class DiscordConfiguration {
 
     @Bean(destroyMethod = "shutdown")

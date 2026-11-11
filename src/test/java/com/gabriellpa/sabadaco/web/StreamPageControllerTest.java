@@ -1,6 +1,7 @@
 package com.gabriellpa.sabadaco.web;
 
 import com.gabriellpa.sabadaco.admin.SecurityConfiguration;
+import com.gabriellpa.sabadaco.stream.DiscordLogin;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamSession;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** A página do link da DM: pública, renderiza o título e o campo do código. */
@@ -31,6 +33,8 @@ class StreamPageControllerTest {
     MockMvc mvc;
     @MockitoBean
     StreamService streams;
+    @MockitoBean
+    DiscordLogin discord;
 
     @Test
     void liveStreamShowsTitleAndCodeFieldWithoutLogin() throws Exception {
@@ -53,6 +57,39 @@ class StreamPageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Esta stream terminou")))
                 .andExpect(content().string(not(containsString("id=\"code\""))));
+    }
+
+    @Test
+    void activityPageLoadsDiscordSdkWithoutCodeFieldAndCanBeFramed() throws Exception {
+        when(discord.isConfigured()).thenReturn(true);
+        when(discord.clientId()).thenReturn("888603239304527884");
+
+        mvc.perform(get("/stream/activity"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Frame-Options"))
+                .andExpect(content().string(containsString("data-mode=\"activity\"")))
+                .andExpect(content().string(containsString("data-client-id=\"888603239304527884\"")))
+                .andExpect(content().string(containsString("discord-embedded-app-sdk.js")))
+                .andExpect(content().string(containsString("id=\"activity-retry\"")))
+                .andExpect(content().string(not(containsString("id=\"code\""))));
+    }
+
+    @Test
+    void activityWithoutSecretHasNoClientId() throws Exception {
+        mvc.perform(get("/stream/activity/"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("data-mode=\"activity\"")))
+                .andExpect(content().string(not(containsString("data-client-id"))));
+    }
+
+    @Test
+    void linkPageKeepsCodeFlowAndCannotBeFramed() throws Exception {
+        when(streams.get(STREAM_ID)).thenReturn(Optional.empty());
+
+        mvc.perform(get("/stream/{id}", STREAM_ID))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(content().string(containsString("data-mode=\"link\"")))
+                .andExpect(content().string(not(containsString("discord-embedded-app-sdk.js"))));
     }
 
     @Test

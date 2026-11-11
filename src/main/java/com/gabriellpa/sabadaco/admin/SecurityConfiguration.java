@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.admin;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -14,6 +15,10 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter.XFrameOptionsMode;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.util.UUID;
@@ -47,12 +52,24 @@ public class SecurityConfiguration {
                         // Página e API da stream são públicas: a proteção é o código de uso único enviado por DM
                         .requestMatchers("/stream/**").permitAll()
                         .anyRequest().authenticated())
-                // A API da stream é chamada com fetch e não usa sessão/cookie, então não precisa de token CSRF
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/stream/api/**"))
+                // A API da stream é chamada com fetch e não usa sessão/cookie, então não precisa de token CSRF.
+                // /stream/activity/** é a mesma API vista de dentro do Discord (ver ActivityPathForwarding).
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/stream/api/**", "/stream/activity/**"))
+                // O Discord abre a Atividade num iframe: só essa página pode ficar dentro de outro site
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.disable())
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                                new NegatedRequestMatcher(SecurityConfiguration::isActivityPage),
+                                new XFrameOptionsHeaderWriter(XFrameOptionsMode.DENY))))
                 .formLogin(form -> form.defaultSuccessUrl("/admin", true))
                 .httpBasic(Customizer.withDefaults())
                 .logout(Customizer.withDefaults())
                 .build();
+    }
+
+    private static boolean isActivityPage(HttpServletRequest request) {
+        var path = request.getRequestURI().substring(request.getContextPath().length());
+        return path.equals("/stream/activity") || path.startsWith("/stream/activity/");
     }
 
     @Bean
