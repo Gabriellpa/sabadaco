@@ -134,14 +134,15 @@ class CommandRegistrarTest {
     }
 
     @Test
-    void globalSyncKeepsTheActivityEntryPointAndRemovesOnlyOldCommands() {
+    void globalSyncDeletesOnlySlashCommandsThatLeftTheBot() {
         var entryPoint = command("launch", Command.Type.UNKNOWN);
         var play = command("play", Command.Type.SLASH);
         var removed = command("antigo", Command.Type.SLASH);
         var userMenu = command("play", Command.Type.USER);
 
-        assertThat(CommandRegistrar.stale(List.of(entryPoint, play, removed, userMenu), registrar.commandData()))
-                .containsExactlyInAnyOrder(removed, userMenu);
+        // O Entry Point da Atividade (UNKNOWN no JDA 6.7) e qualquer comando que não seja slash ficam
+        assertThat(CommandRegistrar.toDelete(List.of(entryPoint, play, removed, userMenu), registrar.commandData()))
+                .containsExactly(removed);
     }
 
     private static Command command(String name, Command.Type type) {

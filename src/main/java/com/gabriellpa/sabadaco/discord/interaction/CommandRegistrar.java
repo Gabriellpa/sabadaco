@@ -59,7 +59,7 @@ public class CommandRegistrar extends ListenerAdapter {
             return;
         }
         jda.retrieveCommands().queue(existing -> {
-            stale(existing, commands).forEach(command -> command.delete().queue(
+            toDelete(existing, commands).forEach(command -> command.delete().queue(
                     done -> log.info("Comando /{} removido", command.getName()),
                     error -> log.error("Falha ao remover o comando /{}", command.getName(), error)));
             // Cada upsert vira um Result para um erro não esconder os outros; o log sai quando todos respondem
@@ -79,14 +79,14 @@ public class CommandRegistrar extends ListenerAdapter {
     }
 
     /**
-     * Comandos globais que o bot não tem mais. O Entry Point da Atividade (tipo que o JDA lê como
-     * {@link Command.Type#UNKNOWN}) é do Discord e fica.
+     * Comandos globais a apagar: só os slash que saíram do bot. Qualquer outro tipo fica, em especial o Entry Point
+     * da Atividade, que é do Discord (o JDA 6.7 lê como {@link Command.Type#UNKNOWN}; uma versão futura que conheça
+     * o tipo continua sem apagá-lo).
      */
-    static List<Command> stale(List<Command> existing, List<SlashCommandData> commands) {
+    static List<Command> toDelete(List<Command> existing, List<SlashCommandData> commands) {
         var names = commands.stream().map(SlashCommandData::getName).collect(Collectors.toSet());
         return existing.stream()
-                .filter(command -> command.getType() != Command.Type.UNKNOWN)
-                .filter(command -> command.getType() != Command.Type.SLASH || !names.contains(command.getName()))
+                .filter(command -> command.getType() == Command.Type.SLASH && !names.contains(command.getName()))
                 .toList();
     }
 
