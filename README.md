@@ -50,6 +50,7 @@ Para mexer no painel **sem Discord** (JDA simulado e playlists de exemplo):
 | `YOUTUBE_OAUTH_ENABLED` / `YOUTUBE_OAUTH_REFRESH_TOKEN` | `false` / vazio | Login no YouTube (client TV), **só se** voltar a aparecer *"This video requires login"* (hoje o client IOS toca sem login). **Use uma conta Google descartável.** Passo a passo no `.env.example` |
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | vazio | Servidor de mídia do streaming de tela (LiveKit Cloud). Sem eles o `/stream` fica desativado |
 | `STREAM_PUBLIC_URL` | `http://localhost:8080` | Endereço público do bot (o do Cloudflare Tunnel), usado nos links das streams |
+| `DISCORD_MESSAGE_CONTENT` | `false` | Mostra na página da stream o chat do canal de texto. Ligue antes **Message Content Intent** no Developer Portal |
 
 > A JVM precisa de `--enable-native-access=ALL-UNNAMED` (já configurado no `bootRun`/`test`) por causa do JDAVE.
 > O Discord exige o protocolo **DAVE** (E2EE) em toda conexão de voz desde 01/03/2026; sem ele o bot não toca.
@@ -151,9 +152,12 @@ Substituto do "Go Live" do Discord: quem abre uma stream compartilha a tela pelo
 - Cada pessoa recebe por DM o próprio **código** (uso único, 5 min), que só funciona no link da stream que veio junto. Ao entrar, ela ainda precisa estar no canal de voz da stream, e lá dentro vê todas as streams do canal.
 - `/stream create <título>` avisa o canal e manda por DM o link e o código de quem transmite; `/stream join [stream]` manda o de quem vai assistir (o autocomplete lista as streams ao vivo do seu canal de voz); `/stream end` encerra a sua.
 - Sair (ou trocar) de canal de voz tira a pessoa da sala no LiveKit, cancela os códigos pendentes e, se ela transmitia, encerra a stream com um aviso no canal de texto.
-- `POST /stream/api/{id}/join` (público, sem login do painel) troca o código pelo token do LiveKit.
+- **Página** `/stream/{id}` (o link da DM, pública): campo do código; depois, as telas em grade, a lista **Ao vivo neste canal** com **+ Assistir** (multistream sem pedir outro código) e o chat. Quem abriu a stream vê **Compartilhar tela**: 1080p60 com simulcast (720p30 e 480p15 para quem tem rede pior) e o áudio da aba/sistema quando o navegador permite.
+- **Chat espelhado** com o canal de texto onde o `/stream create` foi usado. O que é escrito na página vai para o canal por um webhook com o nome e o avatar da pessoa (sem a permissão *Gerenciar webhooks*, o bot posta "**nome** (stream): texto"); nunca menciona ninguém. O que é escrito no canal aparece na página só com `DISCORD_MESSAGE_CONTENT=true` (intent privilegiada: ligue **Message Content Intent** no Developer Portal antes, senão o bot não conecta).
+- Ao trocar o código, a página recebe também uma **sessão opaca** (fica na memória do bot, guardada no `sessionStorage` da aba). Com ela, F5 ou queda de conexão reconectam sem novo código, e quem abre uma stream depois de entrar passa a poder transmitir. Sair do canal de voz derruba a sessão na hora.
+- API (pública, sem login do painel; a proteção é o código e depois a sessão em `Authorization: Bearer`): `POST /stream/api/{id}/join` (código → token do LiveKit + sessão), `POST /stream/api/resume`, `GET /stream/api/streams`, `POST /stream/api/chat`.
 
-O núcleo fica em `stream` (sem JDA nem web; a API HTTP é o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (token do LiveKit), `MediaRooms` (API de servidor do LiveKit: remover alguém, tirar a permissão de transmitir) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
+O núcleo fica em `stream` (sem JDA nem web; a API HTTP e a página são o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (token do LiveKit), `MediaRooms` (API de servidor do LiveKit: remover alguém, tirar a permissão de transmitir, mandar o chat para a sala), `VoicePresence` (canal de voz de alguém) e `ChatRelay` (postar no canal de texto), as duas últimas implementadas com JDA.
 
 ## Métricas (`/actuator/prometheus`)
 

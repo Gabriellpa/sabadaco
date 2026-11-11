@@ -31,8 +31,9 @@ class StreamServiceTest {
     private final FakePresence presence = new FakePresence();
     private final FakeMedia media = new FakeMedia();
     private final FakeRooms rooms = new FakeRooms();
+    private final ViewerSessions sessions = new ViewerSessions(clock);
     private final StreamService service = new StreamService(StreamService.snowflakes(0),
-            new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, rooms, presence, DiscordAdmins.of(ADMIN),
+            new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, rooms, sessions, presence, DiscordAdmins.of(ADMIN),
             clock, "https://sabadaco.example/");
 
     @Test
@@ -116,7 +117,7 @@ class StreamServiceTest {
         assertThat(ticket.canPublish()).isFalse();
         assertThat(ticket.room()).isEqualTo("g10-c20");
         assertThat(ticket.identity()).isEqualTo(String.valueOf(VIEWER));
-        assertThat(ticket.token()).isEqualTo("token:g10-c20:2:viewer:false");
+        assertThat(ticket.token()).isEqualTo("token:g10-c20:2:viewer:false:");
         assertThat(ticket.serverUrl()).isEqualTo("wss://media.example");
     }
 
@@ -125,7 +126,69 @@ class StreamServiceTest {
         presence.put(GUILD, HOST, VOICE);
         var invite = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
 
-        assertThat(service.redeem(invite.stream().id(), invite.code().code()).canPublish()).isTrue();
+        var ticket = service.redeem(invite.stream().id(), invite.code().code());
+
+        assertThat(ticket.canPublish()).isTrue();
+        // o metadata diz à página de quem é cada tela: o id da stream de quem transmite
+        assertThat(ticket.token()).endsWith(":true:" + invite.stream().id());
+    }
+
+    @Test
+    void redeemOpensAPageSessionThatEndsWhenLeavingTheVoiceChannel() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+        var ticket = service.redeem(stream.id(), service.join(GUILD, VIEWER, "viewer", "").code().code());
+
+        var session = sessions.get(ticket.session()).orElseThrow();
+        assertThat(session.streamId()).isEqualTo(stream.id());
+        assertThat(session.userId()).isEqualTo(VIEWER);
+
+        service.leftVoiceChannel(GUILD, VIEWER, OTHER_VOICE);
+        assertThat(sessions.get(ticket.session())).isPresent();
+        service.leftVoiceChannel(GUILD, VIEWER, VOICE);
+        assertThat(sessions.get(ticket.session())).isEmpty();
+    }
+
+    @Test
+    void resumeGivesANewTokenWithoutCodeWhileInTheVoiceChannel() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+        var session = service.redeem(stream.id(), service.join(GUILD, VIEWER, "viewer", "").code().code()).session();
+
+        var again = service.resume(session);
+        assertThat(again.session()).isEqualTo(session);
+        assertThat(again.canPublish()).isFalse();
+        assertThat(service.channelStreams(session)).containsExactly(stream);
+
+        // Abriu uma stream depois de entrar: o próximo token já pode transmitir
+        var own = service.create(GUILD, TEXT, VIEWER, "viewer", "Minecraft").stream();
+        var host = service.resume(session);
+        assertThat(host.canPublish()).isTrue();
+        assertThat(host.token()).endsWith(":true:" + own.id());
+
+        presence.put(GUILD, VIEWER, OTHER_VOICE);
+        assertThatThrownBy(() -> service.resume(session))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("saiu do canal de voz");
+        assertThatThrownBy(() -> service.channelStreams(session))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("sessão terminou");
+    }
+
+    @Test
+    void resumeFallsBackToAnotherLiveStreamOfTheChannel() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, HOST_2, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        var valorant = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+        var session = service.redeem(valorant.id(), service.join(GUILD, VIEWER, "viewer", "").code().code()).session();
+        service.end(valorant.id(), HOST);
+
+        assertThatThrownBy(() -> service.resume(session))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("Não há stream ao vivo");
+
+        var minecraft = service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft").stream();
+        assertThat(service.resume(session).stream()).isEqualTo(minecraft);
     }
 
     @Test
@@ -313,14 +376,19 @@ class StreamServiceTest {
         public void revokePublish(String room, String identity) {
             calls.add("revokePublish " + room + " " + identity);
         }
+
+        @Override
+        public void broadcast(String room, byte[] data) {
+            calls.add("broadcast " + room + " " + new String(data, java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     static class FakeMedia implements MediaTokenIssuer {
         boolean configured = true;
 
         @Override
-        public String token(String room, String identity, String displayName, boolean canPublish) {
-            return "token:" + room + ":" + identity + ":" + displayName + ":" + canPublish;
+        public String token(String room, String identity, String displayName, boolean canPublish, String metadata) {
+            return "token:" + room + ":" + identity + ":" + displayName + ":" + canPublish + ":" + metadata;
         }
 
         @Override

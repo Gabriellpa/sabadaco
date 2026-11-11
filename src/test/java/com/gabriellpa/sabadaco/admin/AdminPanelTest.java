@@ -15,6 +15,7 @@ import com.gabriellpa.sabadaco.playlist.Playlist;
 import com.gabriellpa.sabadaco.playlist.PlaylistScope;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import com.gabriellpa.sabadaco.playlist.PlaylistTrack;
+import com.gabriellpa.sabadaco.stream.StreamChatService;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -69,9 +70,11 @@ class AdminPanelTest {
     PlaylistService playlistService;
     @MockitoBean
     DiscordDirectory directory;
-    /** O @WebMvcTest também carrega o StreamApiController. */
+    /** O @WebMvcTest também carrega os controllers da stream. */
     @MockitoBean
     StreamService streamService;
+    @MockitoBean
+    StreamChatService streamChatService;
     @MockitoBean
     GuildPlayerRegistry players;
     @MockitoBean

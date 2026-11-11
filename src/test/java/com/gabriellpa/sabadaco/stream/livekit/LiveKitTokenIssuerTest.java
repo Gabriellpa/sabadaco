@@ -16,18 +16,19 @@ class LiveKitTokenIssuerTest {
 
     @Test
     void viewerCanOnlySubscribe() {
-        var claims = payload(issuer.token("g1-c2", "42", "gabriel", false));
+        var claims = payload(issuer.token("g1-c2", "42", "gabriel", false, ""));
 
         assertThat(claims).contains("\"sub\":\"42\"", "\"name\":\"gabriel\"", "\"room\":\"g1-c2\"",
                 "\"roomJoin\":true", "\"canSubscribe\":true", "\"canPublish\":false", "\"canPublishData\":false");
-        assertThat(claims).doesNotContain("canPublishSources");
+        assertThat(claims).doesNotContain("canPublishSources", "metadata");
     }
 
     @Test
     void hostCanPublishOnlyScreen() {
-        var claims = payload(issuer.token("g1-c2", "42", "gabriel", true));
+        var claims = payload(issuer.token("g1-c2", "42", "gabriel", true, "123"));
 
-        assertThat(claims).contains("\"canPublish\":true", "\"canPublishSources\":[\"screen_share\",\"screen_share_audio\"]");
+        assertThat(claims).contains("\"canPublish\":true", "\"canPublishSources\":[\"screen_share\",\"screen_share_audio\"]",
+                "\"metadata\":\"123\"");
     }
 
     @Test

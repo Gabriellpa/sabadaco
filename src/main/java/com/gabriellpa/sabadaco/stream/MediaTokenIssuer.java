@@ -9,8 +9,9 @@ public interface MediaTokenIssuer {
     /**
      * @param identity  identificador estável da pessoa na sala (o id do Discord)
      * @param canPublish se pode transmitir a tela (só quem abriu uma stream no canal)
+     * @param metadata   texto visível para todos na sala; usamos o id da stream de quem transmite
      */
-    String token(String room, String identity, String displayName, boolean canPublish);
+    String token(String room, String identity, String displayName, boolean canPublish, String metadata);
 
     /** URL WebSocket do servidor de mídia, usada pelo navegador. */
     String serverUrl();
