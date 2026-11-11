@@ -1,11 +1,8 @@
-package com.gabriellpa.sabadaco.stream.web;
+package com.gabriellpa.sabadaco.web;
 
-import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamSession;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,21 +10,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 /**
- * API pública da página da stream (sem login do painel: a proteção é o código de uso único).
- * {@code POST /stream/api/{id}/join} troca o código pelo token do LiveKit.
+ * Adaptador web público da stream (sem login do painel: a proteção é o código de uso único).
+ * Só traduz HTTP ↔ {@link StreamService}; as regras ficam no serviço e os erros em {@link StreamApiErrorHandler}.
  */
 @RestController
 @RequestMapping("/stream/api")
+@RequiredArgsConstructor
 public class StreamApiController {
 
     private final StreamService streams;
-
-    public StreamApiController(StreamService streams) {
-        this.streams = streams;
-    }
 
     public record JoinRequest(String code) {
     }
@@ -44,6 +37,7 @@ public class StreamApiController {
                                StreamView stream, List<StreamView> channelStreams) {
     }
 
+    /** Troca o código pelo token do LiveKit. */
     @PostMapping("/{streamId}/join")
     public JoinResponse join(@PathVariable long streamId, @RequestBody JoinRequest request) {
         var ticket = streams.redeem(streamId, request.code());
@@ -51,8 +45,4 @@ public class StreamApiController {
                 StreamView.of(ticket.stream()), ticket.channelStreams().stream().map(StreamView::of).toList());
     }
 
-    @ExceptionHandler(UserFacingException.class)
-    public ResponseEntity<Map<String, String>> userError(UserFacingException error) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
-    }
 }

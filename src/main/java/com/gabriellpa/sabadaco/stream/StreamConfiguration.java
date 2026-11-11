@@ -1,6 +1,5 @@
 package com.gabriellpa.sabadaco.stream;
 
-import com.gabriellpa.sabadaco.DiscordAdmins;
 import com.gabriellpa.sabadaco.stream.livekit.LiveKitTokenIssuer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -8,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
+/** Implementações das portas do streaming (o {@link StreamService} é um {@code @Service}). */
 @Configuration
 @EnableConfigurationProperties(StreamProperties.class)
 public class StreamConfiguration {
@@ -24,13 +24,5 @@ public class StreamConfiguration {
     @Bean
     public MediaTokenIssuer mediaTokenIssuer(StreamProperties properties) {
         return new LiveKitTokenIssuer(properties.livekit());
-    }
-
-    @Bean
-    public StreamService streamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media,
-                                       VoicePresence presence, DiscordAdmins admins) {
-        var clock = Clock.systemUTC();
-        return new StreamService(new SnowflakeGenerator(clock, properties.node()), codes, media, presence, admins,
-                clock, properties.publicUrl());
     }
 }

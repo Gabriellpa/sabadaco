@@ -150,7 +150,7 @@ Substituto do "Go Live" do Discord: quem abre uma stream compartilha a tela pelo
 - Cada pessoa recebe por DM o próprio **código** (uso único, 5 min). Ele abre todas as streams do canal de voz onde ela estava ao pedir. Ao entrar, ela ainda precisa estar nesse canal.
 - `POST /stream/api/{id}/join` (público, sem login do painel) troca o código pelo token do LiveKit.
 
-O núcleo fica em `stream` (sem JDA). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (LiveKit) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
+O núcleo fica em `stream` (sem JDA nem web; a API HTTP é o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (LiveKit) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
 
 ## Métricas (`/actuator/prometheus`)
 

@@ -1,4 +1,4 @@
-package com.gabriellpa.sabadaco.stream.web;
+package com.gabriellpa.sabadaco.web;
 
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.admin.SecurityConfiguration;

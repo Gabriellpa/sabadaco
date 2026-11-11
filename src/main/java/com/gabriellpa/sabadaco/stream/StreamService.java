@@ -2,6 +2,8 @@ package com.gabriellpa.sabadaco.stream;
 
 import com.gabriellpa.sabadaco.DiscordAdmins;
 import com.gabriellpa.sabadaco.UserFacingException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.util.Comparator;
@@ -18,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Segurança: o código chega por DM, é da pessoa, vale 5 min e uma vez só. Ao trocar o código pelo
  * acesso, a pessoa ainda precisa estar no mesmo servidor e no mesmo canal de voz da stream.
  */
+@Service
 public class StreamService {
 
     static final int MAX_TITLE_LENGTH = 100;
@@ -31,8 +34,15 @@ public class StreamService {
     private final String publicUrl;
     private final Map<Long, StreamSession> live = new ConcurrentHashMap<>();
 
-    public StreamService(SnowflakeGenerator ids, JoinCodeIssuer codes, MediaTokenIssuer media, VoicePresence presence,
-                         DiscordAdmins admins, Clock clock, String publicUrl) {
+    @Autowired
+    public StreamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media,
+                         VoicePresence presence, DiscordAdmins admins) {
+        this(new SnowflakeGenerator(Clock.systemUTC(), properties.node()), codes, media, presence, admins,
+                Clock.systemUTC(), properties.publicUrl());
+    }
+
+    StreamService(SnowflakeGenerator ids, JoinCodeIssuer codes, MediaTokenIssuer media, VoicePresence presence,
+                  DiscordAdmins admins, Clock clock, String publicUrl) {
         this.ids = ids;
         this.codes = codes;
         this.media = media;
