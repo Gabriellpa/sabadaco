@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Quem sai (ou troca) de canal de voz perde o acesso às streams daquele canal: é desconectado da sala,
  * os códigos pendentes deixam de valer e, se transmitia lá, a stream termina com um aviso no canal de texto
- * e o 🔴 sai do apelido.
+ * e o 🎥 sai do apelido.
  */
 @Slf4j
 @Component

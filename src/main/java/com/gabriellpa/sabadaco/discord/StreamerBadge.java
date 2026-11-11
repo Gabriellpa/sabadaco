@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Marca no apelido do servidor quem está transmitindo (🔴 na frente do nome) e desfaz quando a stream termina.
+ * Marca no apelido do servidor quem está transmitindo (🎥 no fim do nome) e desfaz quando a stream termina.
  *
  * <p>Precisa da permissão "Gerenciar apelidos" e de o cargo do bot estar acima do da pessoa; o Discord não deixa
  * mudar o apelido do dono do servidor. Sem isso, a stream segue normal, só sem o ícone.
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class StreamerBadge {
 
-    static final String BADGE = "🔴 ";
+    static final String BADGE = " 🎥";
     static final int MAX_NICKNAME = 32;
 
     private record Key(long guildId, long userId) {
@@ -46,7 +46,7 @@ public class StreamerBadge {
     public void mark(StreamSession stream) {
         withMember(stream.guildId(), stream.hostUserId(), (guild, member) -> {
             var nickname = member.getNickname();
-            if (nickname != null && nickname.startsWith(BADGE)) {
+            if (nickname != null && nickname.endsWith(BADGE)) {
                 return;
             }
             var badged = withBadge(member.getEffectiveName());
@@ -62,13 +62,13 @@ public class StreamerBadge {
     }
 
     /**
-     * Tira o ícone, se houver. Sem o apelido original guardado (bot reiniciou), só remove o ícone do começo.
+     * Tira o ícone, se houver. Sem o apelido original guardado (bot reiniciou), só remove o ícone do fim.
      */
     public void unmark(long guildId, long userId) {
         var original = originals.remove(new Key(guildId, userId));
         withMember(guildId, userId, (guild, member) -> {
             var nickname = member.getNickname();
-            if (nickname == null || !nickname.startsWith(BADGE)) {
+            if (nickname == null || !nickname.endsWith(BADGE)) {
                 return;
             }
             var restored = original != null ? original.orElse(null) : withoutBadge(nickname);
@@ -77,23 +77,27 @@ public class StreamerBadge {
         });
     }
 
-    /** O apelido com o ícone, cortado no limite de 32 caracteres do Discord (sem quebrar emoji nem acento). */
+    /**
+     * O apelido com o ícone no fim. Se passar dos 32 caracteres do Discord, corta o nome (sem quebrar emoji nem
+     * acento) para o ícone continuar aparecendo.
+     */
     static String withBadge(String name) {
-        var full = BADGE + name.strip();
+        var clean = name.strip();
+        int room = MAX_NICKNAME - BADGE.length();
         int end = 0;
-        while (end < full.length()) {
-            int next = full.offsetByCodePoints(end, 1);
-            if (next > MAX_NICKNAME) {
+        while (end < clean.length()) {
+            int next = clean.offsetByCodePoints(end, 1);
+            if (next > room) {
                 break;
             }
             end = next;
         }
-        return full.substring(0, end).strip();
+        return clean.substring(0, end).strip() + BADGE;
     }
 
-    /** Remove o ícone do começo; sem nada sobrando, volta a não ter apelido. */
+    /** Remove o ícone do fim; sem nada sobrando, volta a não ter apelido. */
     static String withoutBadge(String nickname) {
-        var rest = nickname.startsWith(BADGE) ? nickname.substring(BADGE.length()).strip() : nickname;
+        var rest = nickname.endsWith(BADGE) ? nickname.substring(0, nickname.length() - BADGE.length()).strip() : nickname;
         return rest.isEmpty() ? null : rest;
     }
 

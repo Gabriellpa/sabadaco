@@ -55,6 +55,6 @@ class CreateStream extends StreamSubcommand {
                 "Você precisa estar em um canal de voz. Só quem está nele pode assistir.",
                 "Cada pessoa abre uma stream por vez; o canal pode ter várias ao mesmo tempo.",
                 "Sair do canal de voz encerra a sua stream.",
-                "Enquanto transmite, seu apelido no servidor ganha um 🔴 (se o bot puder mudar apelidos).");
+                "Enquanto transmite, seu apelido no servidor ganha um 🎥 no fim (se o bot puder mudar apelidos).");
     }
 }
