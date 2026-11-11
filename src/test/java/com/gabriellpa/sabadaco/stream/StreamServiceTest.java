@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,8 +30,9 @@ class StreamServiceTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-10T20:00:00Z"));
     private final FakePresence presence = new FakePresence();
     private final FakeMedia media = new FakeMedia();
+    private final FakeRooms rooms = new FakeRooms();
     private final StreamService service = new StreamService(StreamService.snowflakes(0),
-            new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, presence, DiscordAdmins.of(ADMIN),
+            new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, rooms, presence, DiscordAdmins.of(ADMIN),
             clock, "https://sabadaco.example/");
 
     @Test
@@ -189,7 +192,7 @@ class StreamServiceTest {
     }
 
     @Test
-    void onlyHostOrAdminEnds() {
+    void onlyHostOrAdminEndsAndTheHostStopsPublishing() {
         presence.put(GUILD, HOST, VOICE);
         var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
 
@@ -197,20 +200,52 @@ class StreamServiceTest {
         service.end(stream.id(), ADMIN);
 
         assertThat(service.get(stream.id())).isEmpty();
+        assertThat(rooms.calls).containsExactly("revokePublish g10-c20 1");
     }
 
     @Test
-    void leavingTheVoiceChannelEndsHostedStreamAndRevokesCodes() {
+    void endOwnEndsTheCallersStream() {
+        presence.put(GUILD, HOST, VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+
+        assertThat(service.endOwn(GUILD, HOST)).isEqualTo(stream);
+        assertThatThrownBy(() -> service.endOwn(GUILD, HOST))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("não tem nenhuma stream");
+    }
+
+    @Test
+    void leavingTheVoiceChannelEndsHostedStreamRevokesCodesAndLeavesTheRoom() {
         presence.put(GUILD, HOST, VOICE);
         presence.put(GUILD, VIEWER, VOICE);
         var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
         var viewerCode = service.join(GUILD, VIEWER, "viewer", "").code().code();
 
-        assertThat(service.leftVoiceChannel(GUILD, VIEWER)).isEmpty();
+        assertThat(service.leftVoiceChannel(GUILD, VIEWER, VOICE)).isEmpty();
         assertThatThrownBy(() -> service.redeem(stream.id(), viewerCode)).isInstanceOf(UserFacingException.class);
 
-        assertThat(service.leftVoiceChannel(GUILD, HOST)).containsExactly(stream);
+        assertThat(service.leftVoiceChannel(GUILD, HOST, VOICE)).containsExactly(stream);
         assertThat(service.streamsIn(GUILD, VOICE)).isEmpty();
+        assertThat(rooms.calls).containsExactly("remove g10-c20 2", "remove g10-c20 1");
+    }
+
+    @Test
+    void leavingAnotherChannelKeepsTheStream() {
+        presence.put(GUILD, HOST, VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+
+        assertThat(service.leftVoiceChannel(GUILD, HOST, OTHER_VOICE)).isEmpty();
+        assertThat(service.get(stream.id())).isPresent();
+    }
+
+    @Test
+    void joinFindsByStreamIdFromAutocomplete() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, HOST_2, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
+        var minecraft = service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft").stream();
+
+        assertThat(service.join(GUILD, VIEWER, "viewer", String.valueOf(minecraft.id())).stream()).isEqualTo(minecraft);
     }
 
     @Test
@@ -245,6 +280,20 @@ class StreamServiceTest {
         @Override
         public Optional<Long> voiceChannelOf(long guildId, long userId) {
             return Optional.ofNullable(channels.get(guildId + ":" + userId));
+        }
+    }
+
+    static class FakeRooms implements MediaRooms {
+        final List<String> calls = new ArrayList<>();
+
+        @Override
+        public void remove(String room, String identity) {
+            calls.add("remove " + room + " " + identity);
+        }
+
+        @Override
+        public void revokePublish(String room, String identity) {
+            calls.add("revokePublish " + room + " " + identity);
         }
     }
 

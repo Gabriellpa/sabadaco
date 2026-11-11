@@ -16,6 +16,7 @@ public record CommandHelp(Category category, String summary, List<Example> examp
         MUSIC("🎵 Música"),
         CONTROLS("🎛️ Fila e controles"),
         PLAYLIST("💾 Playlists"),
+        STREAM("📺 Streaming de tela"),
         OTHER("✨ Outros");
 
         private final String label;

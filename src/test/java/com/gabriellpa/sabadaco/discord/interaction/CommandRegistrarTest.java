@@ -7,6 +7,7 @@ import com.gabriellpa.sabadaco.discord.ui.PlayerPanelUpdater;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
+import com.gabriellpa.sabadaco.stream.StreamService;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
@@ -53,6 +54,8 @@ class CommandRegistrarTest {
     DiscordDirectory directory;
     @MockitoBean
     PlayerPanelUpdater panels;
+    @MockitoBean
+    StreamService streamService;
 
     @Autowired
     CommandRegistrar registrar;
@@ -61,9 +64,11 @@ class CommandRegistrarTest {
     void registersEveryCommandOnceWithSubcommandsGrouped() {
         var commands = byName();
 
-        assertThat(commands).containsKeys("play", "search", "player", "queue", "skip", "stop", "pause", "volume", "kassino", "help", "playlist");
+        assertThat(commands).containsKeys("play", "search", "player", "queue", "skip", "stop", "pause", "volume", "kassino", "help", "playlist", "stream");
         assertThat(commands.get("playlist").getSubcommands()).extracting(SubcommandData::getName)
                 .containsExactlyInAnyOrder("create", "list", "show", "play", "add", "add-current", "alias", "remove", "move", "rename", "delete");
+        assertThat(commands.get("stream").getSubcommands()).extracting(SubcommandData::getName)
+                .containsExactlyInAnyOrder("create", "join", "end");
     }
 
     @Test
@@ -77,6 +82,7 @@ class CommandRegistrarTest {
         var playlist = commands.get("playlist").toData().toString();
         assertThat(play).contains("\"" + DiscordLocale.PORTUGUESE_BRAZILIAN.getLocale() + "\":\"tocar\"");
         assertThat(playlist).contains("\"mover\"", "\"apelido\"", "\"criar\"");
+        assertThat(commands.get("stream").toData().toString()).contains("\"criar\"", "\"encerrar\"", "\"titulo\"");
     }
 
     /** Garante que comandos novos não fiquem sem tradução: toda descrição e toda escolha precisam de pt-BR. */

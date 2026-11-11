@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.stream;
 
+import com.gabriellpa.sabadaco.stream.livekit.LiveKitRooms;
 import com.gabriellpa.sabadaco.stream.livekit.LiveKitTokenIssuer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -24,5 +25,10 @@ public class StreamConfiguration {
     @Bean
     public MediaTokenIssuer mediaTokenIssuer(StreamProperties properties) {
         return new LiveKitTokenIssuer(properties.livekit());
+    }
+
+    @Bean
+    public MediaRooms mediaRooms(StreamProperties properties) {
+        return new LiveKitRooms(properties.livekit());
     }
 }

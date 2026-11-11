@@ -66,6 +66,7 @@ Nomes e descrições em inglês, traduzidos automaticamente para quem usa o Disc
 | `/queue` | Fila paginada, com remover e limpar |
 | `/skip` `/stop` `/pause` `/volume` | Controles |
 | `/playlist create\|list\|show\|play\|add\|add-current\|alias\|remove\|move\|rename\|delete` | Playlists |
+| `/stream create\|join\|end` | Streaming de tela no canal de voz: abre uma stream, pede o link e o código (por DM) para assistir, encerra a sua |
 | `/kassino` | 🙂 |
 | `/help [comando]` | Todos os comandos por categoria, com exemplos (`/help play` vai direto) |
 
@@ -148,9 +149,11 @@ Substituto do "Go Live" do Discord: quem abre uma stream compartilha a tela pelo
 
 - O vídeo não passa pelo bot: vai do navegador para o **LiveKit** (um SFU), que repassa para cada espectador na qualidade que a internet dele aguenta. O bot só emite os acessos.
 - Cada pessoa recebe por DM o próprio **código** (uso único, 5 min), que só funciona no link da stream que veio junto. Ao entrar, ela ainda precisa estar no canal de voz da stream, e lá dentro vê todas as streams do canal.
+- `/stream create <título>` avisa o canal e manda por DM o link e o código de quem transmite; `/stream join [stream]` manda o de quem vai assistir (o autocomplete lista as streams ao vivo do seu canal de voz); `/stream end` encerra a sua.
+- Sair (ou trocar) de canal de voz tira a pessoa da sala no LiveKit, cancela os códigos pendentes e, se ela transmitia, encerra a stream com um aviso no canal de texto.
 - `POST /stream/api/{id}/join` (público, sem login do painel) troca o código pelo token do LiveKit.
 
-O núcleo fica em `stream` (sem JDA nem web; a API HTTP é o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (LiveKit) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
+O núcleo fica em `stream` (sem JDA nem web; a API HTTP é o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (token do LiveKit), `MediaRooms` (API de servidor do LiveKit: remover alguém, tirar a permissão de transmitir) e `VoicePresence` (canal de voz de alguém, implementada com JDA).
 
 ## Métricas (`/actuator/prometheus`)
 
