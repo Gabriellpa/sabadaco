@@ -90,7 +90,8 @@ public class StreamService {
     }
 
     /**
-     * Gera um código para assistir às streams do canal de voz onde a pessoa está.
+     * Gera o código para assistir a uma stream do canal de voz onde a pessoa está. Ele só vale no link dessa
+     * stream; lá dentro ela vê também as outras streams do canal.
      *
      * @param query título, nome de quem transmite ou id dele; vazio = a primeira stream do canal
      */
@@ -113,8 +114,8 @@ public class StreamService {
                 .orElseThrow(() -> new UserFacingException("Código inválido ou expirado. Peça outro com /stream join."));
         var stream = Optional.ofNullable(live.get(streamId))
                 .orElseThrow(() -> new UserFacingException("Esta stream já terminou."));
-        if (grant.guildId() != stream.guildId() || grant.voiceChannelId() != stream.voiceChannelId()) {
-            throw new UserFacingException("Este código não vale para esta stream: ele é do canal de voz onde você o pediu.");
+        if (grant.streamId() != stream.id()) {
+            throw new UserFacingException("Este código é de outra stream: use o link que veio junto com ele.");
         }
         var current = presence.voiceChannelOf(stream.guildId(), grant.userId());
         if (current.isEmpty() || current.get() != stream.voiceChannelId()) {
@@ -178,7 +179,7 @@ public class StreamService {
     }
 
     private Invite invite(StreamSession stream, long userId, String displayName) {
-        var code = codes.issue(stream.guildId(), stream.voiceChannelId(), userId, displayName);
+        var code = codes.issue(stream.id(), stream.guildId(), stream.voiceChannelId(), userId, displayName);
         return new Invite(stream, linkOf(stream), code);
     }
 

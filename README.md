@@ -147,7 +147,7 @@ Implemente `PlaylistRepository` (5 métodos), anote com `@ConditionalOnProperty(
 Substituto do "Go Live" do Discord: quem abre uma stream compartilha a tela pelo navegador, e quem está no **mesmo canal de voz** assiste por um link.
 
 - O vídeo não passa pelo bot: vai do navegador para o **LiveKit** (um SFU), que repassa para cada espectador na qualidade que a internet dele aguenta. O bot só emite os acessos.
-- Cada pessoa recebe por DM o próprio **código** (uso único, 5 min). Ele abre todas as streams do canal de voz onde ela estava ao pedir. Ao entrar, ela ainda precisa estar nesse canal.
+- Cada pessoa recebe por DM o próprio **código** (uso único, 5 min), que só funciona no link da stream que veio junto. Ao entrar, ela ainda precisa estar no canal de voz da stream, e lá dentro vê todas as streams do canal.
 - `POST /stream/api/{id}/join` (público, sem login do painel) troca o código pelo token do LiveKit.
 
 O núcleo fica em `stream` (sem JDA nem web; a API HTTP é o adaptador `web`). As portas são `JoinCodeIssuer` (códigos, hoje em memória, pode virar uma API separada), `MediaTokenIssuer` (LiveKit) e `VoicePresence` (canal de voz de alguém, implementada com JDA).

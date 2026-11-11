@@ -126,18 +126,22 @@ class StreamServiceTest {
     }
 
     @Test
-    void oneCodeOpensEveryStreamOfTheChannelButOnlyOnce() {
+    void codeOnlyWorksOnItsOwnStreamLinkButShowsEveryStreamOfTheChannel() {
         presence.put(GUILD, HOST, VOICE);
         presence.put(GUILD, HOST_2, VOICE);
         presence.put(GUILD, VIEWER, VOICE);
-        service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
+        var valorant = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
         var minecraft = service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft").stream();
-        var code = service.join(GUILD, VIEWER, "viewer", "Valorant").code().code();
+        var valorantCode = service.join(GUILD, VIEWER, "viewer", "Valorant").code().code();
 
-        var ticket = service.redeem(minecraft.id(), code);
+        assertThatThrownBy(() -> service.redeem(minecraft.id(), valorantCode))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("outra stream");
+
+        var otherCode = service.join(GUILD, VIEWER, "viewer", "Valorant").code().code();
+        var ticket = service.redeem(valorant.id(), otherCode);
 
         assertThat(ticket.channelStreams()).extracting(StreamSession::title).containsExactly("Valorant", "Minecraft");
-        assertThatThrownBy(() -> service.redeem(minecraft.id(), code))
+        assertThatThrownBy(() -> service.redeem(valorant.id(), otherCode))
                 .isInstanceOf(UserFacingException.class).hasMessageContaining("inválido ou expirado");
     }
 
@@ -149,7 +153,7 @@ class StreamServiceTest {
         var otherChannelCode = service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft").code().code();
 
         assertThatThrownBy(() -> service.redeem(valorant.id(), otherChannelCode))
-                .isInstanceOf(UserFacingException.class).hasMessageContaining("não vale para esta stream");
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("outra stream");
     }
 
     @Test

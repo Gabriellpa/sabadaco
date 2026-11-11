@@ -34,7 +34,7 @@ public class InMemoryJoinCodeIssuer implements JoinCodeIssuer {
     }
 
     @Override
-    public synchronized JoinCode issue(long guildId, long voiceChannelId, long userId, String displayName) {
+    public synchronized JoinCode issue(long streamId, long guildId, long voiceChannelId, long userId, String displayName) {
         var now = clock.instant();
         pending.values().removeIf(entry -> !entry.expiresAt().isAfter(now));
         revoke(guildId, userId);
@@ -43,7 +43,7 @@ public class InMemoryJoinCodeIssuer implements JoinCodeIssuer {
             code = randomCode();
         } while (pending.containsKey(code));
         var expiresAt = now.plus(ttl);
-        pending.put(code, new Pending(new JoinGrant(guildId, voiceChannelId, userId, displayName), expiresAt));
+        pending.put(code, new Pending(new JoinGrant(streamId, guildId, voiceChannelId, userId, displayName), expiresAt));
         return new JoinCode(format(code), expiresAt);
     }
 
