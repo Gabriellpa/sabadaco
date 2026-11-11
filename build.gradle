@@ -62,6 +62,12 @@ dependencies {
     implementation("org.mongodb:mongodb-driver-sync") {
         because "Blocking MongoDB driver used by MongoTemplate"
     }
+    implementation("de.mkammerer.snowflake-id:snowflake-id:0.0.2") {
+        because "Snowflake IDs for screen streams (time-ordered, unique without a database)"
+    }
+    implementation("io.livekit:livekit-server:0.17.0") {
+        because "Generates LiveKit access tokens for the screen streaming (/stream)"
+    }
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor") {
         because "Generates metadata for @ConfigurationProperties"
     }
