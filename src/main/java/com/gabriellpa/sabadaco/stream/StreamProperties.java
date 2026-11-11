@@ -20,8 +20,10 @@ public record StreamProperties(@DefaultValue("http://localhost:8080") String pub
 
     /**
      * @param url       WebSocket do LiveKit (ex.: {@code wss://meu-projeto.livekit.cloud})
-     * @param tokenTtl  validade do token de acesso à sala; quem sai do canal de voz é removido antes disso
+     * @param tokenTtl  janela para <b>conectar</b> com o token. Curta de propósito: se o token vazar, logo deixa de
+     *                  servir. Quem já está na sala não cai quando ela passa, porque o LiveKit renova o token
+     *                  sozinho para quem está conectado.
      */
-    public record LiveKit(String url, String apiKey, String apiSecret, @DefaultValue("6h") Duration tokenTtl) {
+    public record LiveKit(String url, String apiKey, String apiSecret, @DefaultValue("10m") Duration tokenTtl) {
     }
 }
