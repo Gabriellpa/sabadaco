@@ -2,16 +2,22 @@ package com.gabriellpa.sabadaco.stream;
 
 import com.gabriellpa.sabadaco.DiscordAdmins;
 import com.gabriellpa.sabadaco.UserFacingException;
+import de.mkammerer.snowflakeid.SnowflakeIdGenerator;
+import de.mkammerer.snowflakeid.options.Options;
+import de.mkammerer.snowflakeid.structure.Structure;
+import de.mkammerer.snowflakeid.time.MonotonicTimeSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 
 /**
  * Regras do streaming de tela: abrir, encontrar e encerrar streams, emitir códigos e trocar um código
@@ -25,7 +31,7 @@ public class StreamService {
 
     static final int MAX_TITLE_LENGTH = 100;
 
-    private final SnowflakeGenerator ids;
+    private final LongSupplier ids;
     private final JoinCodeIssuer codes;
     private final MediaTokenIssuer media;
     private final VoicePresence presence;
@@ -34,14 +40,16 @@ public class StreamService {
     private final String publicUrl;
     private final Map<Long, StreamSession> live = new ConcurrentHashMap<>();
 
+    /** Início da contagem dos IDs snowflake (como o 2015-01-01 do Discord). */
+    static final Instant ID_EPOCH = Instant.parse("2026-01-01T00:00:00Z");
+
     @Autowired
     public StreamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media,
                          VoicePresence presence, DiscordAdmins admins) {
-        this(new SnowflakeGenerator(Clock.systemUTC(), properties.node()), codes, media, presence, admins,
-                Clock.systemUTC(), properties.publicUrl());
+        this(snowflakes(properties.node()), codes, media, presence, admins, Clock.systemUTC(), properties.publicUrl());
     }
 
-    StreamService(SnowflakeGenerator ids, JoinCodeIssuer codes, MediaTokenIssuer media, VoicePresence presence,
+    StreamService(LongSupplier ids, JoinCodeIssuer codes, MediaTokenIssuer media, VoicePresence presence,
                   DiscordAdmins admins, Clock clock, String publicUrl) {
         this.ids = ids;
         this.codes = codes;
@@ -83,7 +91,7 @@ public class StreamService {
         if (titleTaken) {
             throw new UserFacingException("Já existe uma stream chamada \"" + cleanTitle + "\" neste canal.");
         }
-        var stream = new StreamSession(ids.next(), cleanTitle, guildId, voiceChannelId, textChannelId,
+        var stream = new StreamSession(ids.getAsLong(), cleanTitle, guildId, voiceChannelId, textChannelId,
                 hostUserId, hostName, clock.instant());
         live.put(stream.id(), stream);
         return invite(stream, hostUserId, hostName);
@@ -170,6 +178,17 @@ public class StreamService {
 
     public String linkOf(StreamSession stream) {
         return publicUrl + "/stream/" + stream.id();
+    }
+
+    /**
+     * IDs no formato snowflake (biblioteca snowflake-id): 41 bits de tempo, 10 de nó e 12 de sequência.
+     * O relógio é monotônico (não repete ID se o relógio do sistema voltar) e, se a sequência de um
+     * milissegundo esgotar, espera o próximo em vez de falhar.
+     */
+    static LongSupplier snowflakes(int node) {
+        var generator = SnowflakeIdGenerator.createCustom(node, new MonotonicTimeSource(ID_EPOCH),
+                Structure.createDefault(), new Options(Options.SequenceOverflowStrategy.SPIN_WAIT));
+        return generator::next;
     }
 
     private Optional<StreamSession> hostedBy(long guildId, long userId) {

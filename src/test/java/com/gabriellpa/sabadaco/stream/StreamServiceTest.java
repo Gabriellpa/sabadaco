@@ -28,7 +28,7 @@ class StreamServiceTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-10T20:00:00Z"));
     private final FakePresence presence = new FakePresence();
     private final FakeMedia media = new FakeMedia();
-    private final StreamService service = new StreamService(new SnowflakeGenerator(clock, 0),
+    private final StreamService service = new StreamService(StreamService.snowflakes(0),
             new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, presence, DiscordAdmins.of(ADMIN),
             clock, "https://sabadaco.example/");
 
@@ -211,6 +211,19 @@ class StreamServiceTest {
 
         assertThat(service.leftVoiceChannel(GUILD, HOST)).containsExactly(stream);
         assertThat(service.streamsIn(GUILD, VOICE)).isEmpty();
+    }
+
+    @Test
+    void snowflakeIdsAreUniqueIncreasingAndCarryTheCreationTime() {
+        var ids = StreamService.snowflakes(3);
+        long previous = -1;
+        for (int i = 0; i < 10_000; i++) { // mais que as 4096 sequências de um milissegundo
+            long id = ids.getAsLong();
+            assertThat(id).isGreaterThan(previous);
+            previous = id;
+        }
+        var createdAt = StreamService.ID_EPOCH.plusMillis(previous >>> 22);
+        assertThat(createdAt).isBetween(Instant.now().minusSeconds(60), Instant.now().plusSeconds(1));
     }
 
     @Test
