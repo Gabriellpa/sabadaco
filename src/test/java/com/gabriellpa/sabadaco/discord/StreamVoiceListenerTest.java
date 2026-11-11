@@ -28,7 +28,8 @@ class StreamVoiceListenerTest {
 
     private final StreamService streams = mock(StreamService.class);
     private final StreamAnnouncements announcements = mock(StreamAnnouncements.class);
-    private final StreamVoiceListener listener = new StreamVoiceListener(streams, announcements);
+    private final StreamerBadge badge = mock(StreamerBadge.class);
+    private final StreamVoiceListener listener = new StreamVoiceListener(streams, announcements, badge);
 
     @Test
     void leavingTheVoiceChannelEndsTheStreamAndUpdatesItsCard() {
@@ -39,6 +40,7 @@ class StreamVoiceListenerTest {
         listener.onGuildVoiceUpdate(event);
 
         verify(announcements, timeout(2000)).ended(stream, "quem transmitia saiu do canal de voz");
+        verify(badge, timeout(2000)).unmark(GUILD, HOST);
     }
 
     @Test

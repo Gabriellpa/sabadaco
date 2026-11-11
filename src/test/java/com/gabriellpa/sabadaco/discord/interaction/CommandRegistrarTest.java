@@ -8,6 +8,7 @@ import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamerBadge;
 import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
@@ -62,6 +63,8 @@ class CommandRegistrarTest {
     StreamInvites streamInvites;
     @MockitoBean
     StreamAnnouncements streamAnnouncements;
+    @MockitoBean
+    StreamerBadge streamerBadge;
 
     @Autowired
     CommandRegistrar registrar;

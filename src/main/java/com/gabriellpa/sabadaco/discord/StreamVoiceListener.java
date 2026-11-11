@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Quem sai (ou troca) de canal de voz perde o acesso às streams daquele canal: é desconectado da sala,
- * os códigos pendentes deixam de valer e, se transmitia lá, a stream termina com um aviso no canal de texto.
+ * os códigos pendentes deixam de valer e, se transmitia lá, a stream termina com um aviso no canal de texto
+ * e o 🎥 sai do apelido.
  */
 @Slf4j
 @Component
@@ -18,6 +19,7 @@ public class StreamVoiceListener extends ListenerAdapter {
 
     private final StreamService streams;
     private final StreamAnnouncements announcements;
+    private final StreamerBadge badge;
 
     @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
@@ -30,6 +32,8 @@ public class StreamVoiceListener extends ListenerAdapter {
             try {
                 var ended = streams.leftVoiceChannel(event.getGuild().getIdLong(), event.getMember().getIdLong(), left.getIdLong());
                 ended.forEach(stream -> announcements.ended(stream, "quem transmitia saiu do canal de voz"));
+                // Sem stream no servidor (é uma por pessoa), não deve sobrar ícone, nem de antes de o bot reiniciar
+                badge.unmark(event.getGuild().getIdLong(), event.getMember().getIdLong());
             } catch (RuntimeException error) {
                 log.warn("Falha ao tratar saída do canal de voz de {}", event.getMember().getIdLong(), error);
             }
