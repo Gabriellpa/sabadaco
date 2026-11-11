@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title th:text="${stream != null} ? |${stream.title()} · Sabadaço stream| : 'Stream · Sabadaço'">Stream · Sabadaço</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" th:href="@{/css/stream.css}">
     <script th:src="@{/webjars/livekit-client/dist/livekit-client.umd.js}" defer></script>
     <script th:if="${activity}" th:src="@{/js/vendor/discord-embedded-app-sdk.js}" defer></script>

@@ -150,6 +150,9 @@ class StreamApiControllerTest {
         mvc.perform(post("/stream/activity/stream/api/activity/login?x=1").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(forwardedUrl("/stream/api/activity/login?x=1"));
         mvc.perform(get("/stream/activity/js/stream.js")).andExpect(forwardedUrl("/js/stream.js"));
+        // A CSP do Discord só deixa carregar do próprio domínio: a fonte vem do app, não do Google Fonts.
+        mvc.perform(get("/stream/activity/stream/fonts/geist-latin-wght-normal.woff2"))
+                .andExpect(forwardedUrl("/stream/fonts/geist-latin-wght-normal.woff2"));
     }
 
     @Test

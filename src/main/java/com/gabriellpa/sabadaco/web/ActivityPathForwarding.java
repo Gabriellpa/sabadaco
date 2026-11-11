@@ -29,7 +29,7 @@ public class ActivityPathForwarding extends OncePerRequestFilter {
     /** Caminhos que a página da stream usa (iguais aos liberados no Ingress). */
     private static final List<String> ALLOWED = List.of(
             "/stream/api/", "/css/stream.css", "/js/stream.js", "/js/vendor/discord-embedded-app-sdk.js",
-            "/webjars/livekit-client/");
+            "/webjars/livekit-client/", "/stream/fonts/");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

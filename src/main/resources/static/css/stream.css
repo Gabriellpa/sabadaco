@@ -7,6 +7,23 @@
    Tudo respeita "reduzir movimento".
    ========================================================================= */
 
+/* Geist servida pelo próprio app: dentro da Atividade a CSP do Discord bloqueia o Google Fonts.
+   Arquivos variáveis (peso 100–900), só latin; licença em /stream/fonts/OFL.txt. */
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("/stream/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+    font-family: "Geist Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("/stream/fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+}
+
 @property --angle {
     syntax: "<angle>";
     initial-value: 0deg;
