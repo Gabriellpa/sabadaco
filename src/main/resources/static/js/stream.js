@@ -113,7 +113,15 @@
         message.hidden = !error;
         message.textContent = error || '';
         const input = $('code');
-        if (input) input.focus();
+        if (input) {
+            input.focus();
+            if (error) {
+                const card = $('join-form');
+                card.classList.remove('shake');
+                void card.offsetWidth; // reinicia a animação
+                card.classList.add('shake');
+            }
+        }
     }
 
     function showEnded(title, text, canRetry) {
@@ -134,7 +142,7 @@
         const code = $('code').value.trim();
         if (!code) return;
         button.disabled = true;
-        button.textContent = 'Entrando…';
+        button.innerHTML = '<span class="spinner"></span>Entrando…';
         try {
             const ticket = await api('/' + streamId + '/join', { method: 'POST', body: { code }, auth: false });
             await connect(ticket);
@@ -191,16 +199,18 @@
 
         show('room');
         setStatus('connected', 'Conectado');
-        $('room-title').textContent = ticket.stream.title + ' · ' + ticket.stream.hostName;
+        const title = $('room-title');
+        title.replaceChildren(el('strong', '', ticket.stream.title), document.createTextNode(' · ' + ticket.stream.hostName));
         $('share-toggle').hidden = !state.canPublish;
         updateShareButton();
         updateAudioButton();
+        updateViewers();
         syncSubscriptions();
         startRefresh();
     }
 
     function wire(room) {
-        const resync = () => { syncSubscriptions(); scheduleRefresh(); };
+        const resync = () => { updateViewers(); syncSubscriptions(); scheduleRefresh(); };
         room
             .on(RoomEvent.ParticipantConnected, resync)
             .on(RoomEvent.ParticipantDisconnected, (participant) => { removeTile(participant.identity); resync(); })
@@ -303,15 +313,18 @@
             const empty = el('li', 'stream-empty', 'Nenhuma stream ao vivo neste canal agora.');
             list.append(empty);
         }
-        state.streams.forEach((stream) => {
+        state.streams.forEach((stream, index) => {
             const own = stream.hostId === state.identity;
             const watching = own || state.watching.has(stream.id);
             const sharing = isSharing(stream);
             const item = el('li', 'stream-item' + (watching && !own ? ' watching' : ''));
+            item.style.setProperty('--hue', String(hueOf(stream.id)));
+            item.style.animationDelay = (index * 40) + 'ms';
+            item.append(el('div', 'stream-dot', initial(stream.title)));
             const info = el('div', 'stream-info');
             info.append(el('div', 'stream-title', stream.title));
             info.append(el('div', 'stream-host', own ? 'Sua stream' : stream.hostName));
-            info.append(el('div', 'stream-state' + (sharing ? ' on' : ''), sharing ? '● transmitindo' : 'esperando a tela'));
+            info.append(el('div', 'stream-state' + (sharing ? ' on' : ''), sharing ? 'transmitindo' : 'esperando a tela'));
             item.append(info);
             if (!own) {
                 const button = el('button', 'btn btn-sm ' + (watching ? 'btn-ghost' : 'btn-accent'), watching ? '− Tirar' : '+ Assistir');
@@ -322,8 +335,7 @@
             }
             list.append(item);
         });
-        const channel = state.streams.length ? state.streams.length + (state.streams.length === 1 ? ' stream' : ' streams') : '';
-        $('chat-channel').textContent = channel ? '· ' + channel : '';
+        $('stream-count').textContent = String(state.streams.length);
         updateEmptyText();
     }
 
@@ -397,6 +409,8 @@
         let tile = state.tiles.get(identity);
         if (tile) return tile;
         const root = el('div', 'tile' + (local ? ' local' : ''));
+        root.style.setProperty('--hue', String(stream ? hueOf(stream.id) : 24));
+        root.style.viewTransitionName = 'tile-' + identity.replace(/[^a-zA-Z0-9_-]/g, '');
         const video = document.createElement('video');
         video.autoplay = true;
         video.playsInline = true;
@@ -430,18 +444,24 @@
         volume.addEventListener('input', () => { if (tile.audioTrack) tile.audioTrack.setVolume(Number(volume.value)); });
         state.tiles.set(identity, tile);
         // A sua tela primeiro, depois as outras na ordem em que chegaram
-        if (local) $('grid').prepend(root);
-        else $('grid').append(root);
-        updateGrid();
+        transition(() => {
+            if (local) $('grid').prepend(root);
+            else $('grid').append(root);
+            updateGrid();
+        });
         return tile;
     }
 
     function removeTile(identity) {
         const tile = state.tiles.get(identity);
         if (!tile) return;
-        tile.root.remove();
         state.tiles.delete(identity);
-        updateGrid();
+        if (document.startViewTransition && !reducedMotion()) {
+            transition(() => { tile.root.remove(); updateGrid(); });
+        } else {
+            tile.root.classList.add('leaving');
+            setTimeout(() => { tile.root.remove(); updateGrid(); }, 280);
+        }
     }
 
     function clearTiles() {
@@ -475,6 +495,12 @@
         button.className = 'btn ' + (sharing ? 'btn-danger' : 'btn-accent');
     }
 
+    function updateViewers() {
+        const chip = $('viewers');
+        chip.hidden = !state.room;
+        if (state.room) $('viewers-count').textContent = String(state.room.remoteParticipants.size + 1);
+    }
+
     function updateAudioButton() {
         $('audio-unlock').hidden = !state.room || state.room.canPlaybackAudio;
     }
@@ -500,7 +526,8 @@
             img.loading = 'lazy';
             avatar.append(img);
         } else {
-            avatar.textContent = (message.author || '?').trim().charAt(0).toUpperCase();
+            avatar.textContent = initial(message.author);
+            avatar.style.setProperty('--hue', String(hueOf(message.author || '')));
         }
         const body = el('div', 'msg-body');
         const head = el('div', 'msg-head');
@@ -551,6 +578,30 @@
         return button;
     }
 
+    /** Cor estável por texto (id da stream, nome): a mesma stream tem a mesma cor na lista e na tela. */
+    function hueOf(text) {
+        let hash = 0;
+        for (const char of String(text)) hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+        return Math.round((hash % 997) * 137.508) % 360; // ângulo de ouro: ids parecidos ficam com cores bem diferentes
+    }
+
+    function initial(text) {
+        return ((text || '?').trim().charAt(0) || '?').toUpperCase();
+    }
+
+    function reducedMotion() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    /** Anima a troca do DOM com View Transitions quando o navegador suporta. */
+    function transition(change) {
+        if (document.startViewTransition && !reducedMotion() && document.visibilityState === 'visible') {
+            document.startViewTransition(change);
+        } else {
+            change();
+        }
+    }
+
     function parseJson(text) {
         try { return text ? JSON.parse(text) : null; } catch { return null; }
     }
@@ -564,12 +615,21 @@
             // ABCDEFGH → ABCD-EFGH enquanto digita
             const raw = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
             codeInput.value = raw.length > 4 ? raw.slice(0, 4) + '-' + raw.slice(4) : raw;
+            codeInput.classList.toggle('complete', raw.length === 8);
         });
     }
     $('share-toggle').addEventListener('click', toggleShare);
     $('audio-unlock').addEventListener('click', () => state.room && state.room.startAudio().then(updateAudioButton));
     $('chat-form').addEventListener('submit', sendChat);
     $('rejoin').addEventListener('click', () => (state.session ? resume() : showJoin()));
+    // Holofote: o brilho dos painéis de vidro segue o mouse
+    document.addEventListener('pointermove', (event) => {
+        const glass = event.target.closest && event.target.closest('.glass');
+        if (!glass) return;
+        const box = glass.getBoundingClientRect();
+        glass.style.setProperty('--mx', (event.clientX - box.left) + 'px');
+        glass.style.setProperty('--my', (event.clientY - box.top) + 'px');
+    }, { passive: true });
     window.addEventListener('beforeunload', () => { if (state.room) state.room.disconnect(); });
 
     state.session = store.get(SESSION_KEY);

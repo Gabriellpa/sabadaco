@@ -13,6 +13,7 @@
     <script th:src="@{/js/stream.js}" defer></script>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
 <div id="app" th:attr="data-stream-id=${streamId}">
 
     <header class="topbar">
@@ -21,13 +22,14 @@
         <div class="topbar-actions">
             <button type="button" class="btn btn-ghost" id="audio-unlock" hidden>🔈 Ativar som</button>
             <button type="button" class="btn btn-accent" id="share-toggle" hidden>Compartilhar tela</button>
-            <span class="status" id="status" data-state="idle"><span class="dot"></span><span id="status-text">Desconectado</span></span>
+            <span class="chip" id="viewers" hidden title="Pessoas na sala">👀 <span id="viewers-count">1</span></span>
+            <span class="chip status" id="status" data-state="idle"><span class="dot"></span><span id="status-text">Desconectado</span></span>
         </div>
     </header>
 
     <!-- 1) Código: o link sozinho não basta, cada pessoa tem o seu código (uso único, 5 min) -->
     <section class="screen" id="join-screen" hidden>
-        <form class="card join-card" id="join-form" autocomplete="off">
+        <form class="glass join-card halo" id="join-form" autocomplete="off">
             <div class="live-pill" th:if="${stream != null}"><span class="dot"></span>Ao vivo</div>
             <div class="live-pill ended" th:if="${stream == null}">Encerrada</div>
             <h1 th:text="${stream != null} ? ${stream.title()} : 'Esta stream terminou'">Stream</h1>
@@ -55,12 +57,12 @@
             </div>
         </section>
         <aside class="side">
-            <section class="panel">
-                <h2>Ao vivo neste canal</h2>
+            <section class="glass panel">
+                <h2>Ao vivo neste canal <span class="count" id="stream-count">0</span></h2>
                 <ul class="stream-list" id="stream-list"></ul>
             </section>
-            <section class="panel chat">
-                <h2>Chat <span class="muted small" id="chat-channel"></span></h2>
+            <section class="glass panel chat">
+                <h2>Chat do canal</h2>
                 <ol class="messages" id="messages" aria-live="polite">
                     <li class="system">As mensagens daqui vão para o canal de texto da stream no Discord.</li>
                 </ol>
@@ -75,14 +77,14 @@
 
     <!-- 3) Fim: saiu do canal de voz, conexão caiu, abriu em outra aba -->
     <section class="screen" id="ended-screen" hidden>
-        <div class="card join-card">
+        <div class="glass join-card">
             <h1 id="ended-title">Você saiu da stream</h1>
             <p class="muted" id="ended-text"></p>
             <button type="button" class="btn btn-accent btn-block" id="rejoin" hidden>Reconectar</button>
         </div>
     </section>
 
-    <div class="toast" id="toast" role="status" hidden></div>
+    <div class="glass toast" id="toast" role="status" hidden></div>
 </div>
 </body>
 </html>
