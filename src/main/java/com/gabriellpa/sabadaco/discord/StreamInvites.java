@@ -1,9 +1,9 @@
-package com.gabriellpa.sabadaco.discord.command.stream;
+package com.gabriellpa.sabadaco.discord;
 
 import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.stream.StreamService.Invite;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import org.springframework.stereotype.Component;
 
@@ -13,10 +13,10 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-class StreamInvites {
+public class StreamInvites {
 
     /** Envia a DM e devolve {@code true} se deu certo. Bloqueia: os comandos rodam em virtual threads. */
-    boolean sendByDm(SlashCommandInteractionEvent event, Invite invite) {
+    boolean sendByDm(IReplyCallback event, Invite invite) {
         try {
             event.getUser().openPrivateChannel()
                     .flatMap(channel -> channel.sendMessage(message(invite)))
@@ -29,7 +29,7 @@ class StreamInvites {
     }
 
     /** Responde (efêmero) dizendo que o código foi por DM ou, se a DM falhou, com o próprio código. */
-    void deliver(SlashCommandInteractionEvent event, Invite invite, String headline) {
+    public void deliver(IReplyCallback event, Invite invite, String headline) {
         if (sendByDm(event, invite)) {
             event.getHook().sendMessage(headline + "\n📬 Link e código enviados por DM.").setEphemeral(true).queue();
         } else {

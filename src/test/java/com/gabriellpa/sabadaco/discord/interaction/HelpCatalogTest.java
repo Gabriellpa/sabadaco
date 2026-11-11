@@ -7,6 +7,8 @@ import com.gabriellpa.sabadaco.discord.ui.PlayerPanelUpdater;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
+import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,10 @@ class HelpCatalogTest {
     PlayerPanelUpdater panels;
     @MockitoBean
     StreamService streamService;
+    @MockitoBean
+    StreamInvites streamInvites;
+    @MockitoBean
+    StreamAnnouncements streamAnnouncements;
 
     @Autowired
     HelpCatalog catalog;

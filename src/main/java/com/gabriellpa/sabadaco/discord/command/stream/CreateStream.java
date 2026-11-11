@@ -3,7 +3,8 @@ package com.gabriellpa.sabadaco.discord.command.stream;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
-import com.gabriellpa.sabadaco.discord.ui.Format;
+import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -19,10 +20,12 @@ import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 class CreateStream extends StreamSubcommand {
 
     private final StreamInvites invites;
+    private final StreamAnnouncements announcements;
 
-    CreateStream(StreamService streams, StreamInvites invites) {
+    CreateStream(StreamService streams, StreamInvites invites, StreamAnnouncements announcements) {
         super(streams);
         this.invites = invites;
+        this.announcements = announcements;
     }
 
     @Override
@@ -33,22 +36,18 @@ class CreateStream extends StreamSubcommand {
 
     @Override
     public void handle(SlashCommandInteractionEvent event) {
-        var member = event.getMember();
         var invite = streams.create(Interactions.guildId(event), event.getChannel().getIdLong(),
-                event.getUser().getIdLong(), member == null ? event.getUser().getEffectiveName() : member.getEffectiveName(),
-                Interactions.requireString(event, "title"));
-        var stream = invite.stream();
-        // Aviso público: quem está no canal de voz sabe que pode entrar
-        event.reply("🔴 %s está ao vivo: **%s** em <#%d>. Quem está no canal pode assistir com `/stream join`."
-                        .formatted(Format.mention(stream.hostUserId()), Format.escape(stream.title()), stream.voiceChannelId()))
-                .queue();
+                event.getUser().getIdLong(), Interactions.displayName(event), Interactions.requireString(event, "title"));
+        // Card público com o botão "Assistir"; o link e o código de quem transmite vão por DM
+        var avatar = event.getMember() == null ? event.getUser().getEffectiveAvatarUrl() : event.getMember().getEffectiveAvatarUrl();
+        announcements.announce(event, invite.stream(), avatar);
         invites.deliver(event, invite, "Abra o link para compartilhar sua tela.");
     }
 
     @Override
     public CommandHelp help() {
         return CommandHelp.of(Category.STREAM, "Abre uma stream da sua tela no seu canal de voz.",
-                List.of(example("/stream create Valorant ranqueada", "Avisa o canal e manda por DM o link e o código para você transmitir.")),
+                List.of(example("/stream create Valorant ranqueada", "Publica no canal um card com o botão Assistir e manda por DM o seu link para transmitir.")),
                 "Você precisa estar em um canal de voz. Só quem está nele pode assistir.",
                 "Cada pessoa abre uma stream por vez; o canal pode ter várias ao mesmo tempo.",
                 "Sair do canal de voz encerra a sua stream.");

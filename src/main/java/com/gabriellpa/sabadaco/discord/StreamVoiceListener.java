@@ -1,12 +1,8 @@
 package com.gabriellpa.sabadaco.discord;
 
-import com.gabriellpa.sabadaco.discord.ui.Format;
 import com.gabriellpa.sabadaco.stream.StreamService;
-import com.gabriellpa.sabadaco.stream.StreamSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.springframework.stereotype.Component;
@@ -21,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class StreamVoiceListener extends ListenerAdapter {
 
     private final StreamService streams;
+    private final StreamAnnouncements announcements;
 
     @Override
     public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
@@ -32,18 +29,10 @@ public class StreamVoiceListener extends ListenerAdapter {
         Thread.ofVirtual().start(() -> {
             try {
                 var ended = streams.leftVoiceChannel(event.getGuild().getIdLong(), event.getMember().getIdLong(), left.getIdLong());
-                ended.forEach(stream -> announceEnded(event.getGuild(), stream));
+                ended.forEach(stream -> announcements.ended(stream, "quem transmitia saiu do canal de voz"));
             } catch (RuntimeException error) {
                 log.warn("Falha ao tratar saída do canal de voz de {}", event.getMember().getIdLong(), error);
             }
         });
-    }
-
-    private static void announceEnded(Guild guild, StreamSession stream) {
-        var channel = guild.getChannelById(GuildMessageChannel.class, stream.textChannelId());
-        if (channel != null && channel.canTalk()) {
-            channel.sendMessage("⏹️ A stream **%s** de %s terminou: saiu do canal de voz."
-                    .formatted(Format.escape(stream.title()), Format.escape(stream.hostName()))).queue();
-        }
     }
 }

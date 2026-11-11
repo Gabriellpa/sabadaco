@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.discord.command.stream;
 
+import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
@@ -38,10 +39,8 @@ class JoinStream extends StreamSubcommand {
     @Override
     public void handle(SlashCommandInteractionEvent event) {
         event.deferReply(true).queue();
-        var member = event.getMember();
         var invite = streams.join(Interactions.guildId(event), event.getUser().getIdLong(),
-                member == null ? event.getUser().getEffectiveName() : member.getEffectiveName(),
-                Interactions.string(event, "stream"));
+                Interactions.displayName(event), Interactions.string(event, "stream"));
         invites.deliver(event, invite, "📺 **%s** de %s.".formatted(Format.escape(invite.stream().title()),
                 Format.escape(invite.stream().hostName())));
     }
@@ -73,6 +72,7 @@ class JoinStream extends StreamSubcommand {
                         example("/stream join", "A primeira stream do seu canal."),
                         example("/stream join Valorant", "Pelo título (o autocomplete mostra as streams ao vivo)."),
                         example("/stream join gabriel", "Por quem está transmitindo.")),
+                "Também dá para clicar em 📺 Assistir no card da stream.",
                 "O código vale 5 minutos, uma vez só e só no link que veio com ele.",
                 "Lá dentro você vê todas as streams do canal, sem pedir outro código.",
                 "Sair do canal de voz tira você da stream.");

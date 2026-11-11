@@ -7,6 +7,8 @@ import com.gabriellpa.sabadaco.discord.ui.PlayerPanelUpdater;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
+import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
@@ -56,6 +58,10 @@ class CommandRegistrarTest {
     PlayerPanelUpdater panels;
     @MockitoBean
     StreamService streamService;
+    @MockitoBean
+    StreamInvites streamInvites;
+    @MockitoBean
+    StreamAnnouncements streamAnnouncements;
 
     @Autowired
     CommandRegistrar registrar;

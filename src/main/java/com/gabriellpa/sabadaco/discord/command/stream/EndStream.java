@@ -1,5 +1,6 @@
 package com.gabriellpa.sabadaco.discord.command.stream;
 
+import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp;
 import com.gabriellpa.sabadaco.discord.interaction.CommandHelp.Category;
 import com.gabriellpa.sabadaco.discord.interaction.Interactions;
@@ -16,8 +17,11 @@ import static com.gabriellpa.sabadaco.discord.interaction.CommandHelp.example;
 @Component
 class EndStream extends StreamSubcommand {
 
-    EndStream(StreamService streams) {
+    private final StreamAnnouncements announcements;
+
+    EndStream(StreamService streams, StreamAnnouncements announcements) {
         super(streams);
+        this.announcements = announcements;
     }
 
     @Override
@@ -28,7 +32,8 @@ class EndStream extends StreamSubcommand {
     @Override
     public void handle(SlashCommandInteractionEvent event) {
         var stream = streams.endOwn(Interactions.guildId(event), event.getUser().getIdLong());
-        event.reply("⏹️ Stream **%s** encerrada.".formatted(Format.escape(stream.title()))).queue();
+        announcements.ended(stream, "encerrada por quem transmitia");
+        event.reply("⏹️ Stream **%s** encerrada.".formatted(Format.escape(stream.title()))).setEphemeral(true).queue();
     }
 
     @Override

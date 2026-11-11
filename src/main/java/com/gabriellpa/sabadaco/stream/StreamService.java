@@ -118,6 +118,19 @@ public class StreamService {
         return invite(stream, userId, displayName);
     }
 
+    /** Código para uma stream específica (botão "Assistir" do card). A pessoa precisa estar no canal de voz dela. */
+    public Invite joinStream(long guildId, long userId, String displayName, long streamId) {
+        requireConfigured();
+        var stream = Optional.ofNullable(live.get(streamId))
+                .filter(s -> s.guildId() == guildId)
+                .orElseThrow(() -> new UserFacingException("Esta stream já terminou."));
+        var current = presence.voiceChannelOf(guildId, userId);
+        if (current.isEmpty() || current.get() != stream.voiceChannelId()) {
+            throw new UserFacingException("Entre no canal de voz da stream para assistir.");
+        }
+        return invite(stream, userId, displayName);
+    }
+
     /** Troca o código (uso único) pelo acesso à sala. Chamado pela página da stream. */
     public JoinTicket redeem(long streamId, String code) {
         requireConfigured();

@@ -238,6 +238,24 @@ class StreamServiceTest {
     }
 
     @Test
+    void joinStreamFromTheCardButtonRequiresItsVoiceChannel() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, VIEWER, OTHER_VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+
+        assertThatThrownBy(() -> service.joinStream(GUILD, VIEWER, "viewer", stream.id()))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("Entre no canal de voz da stream");
+
+        presence.put(GUILD, VIEWER, VOICE);
+        var invite = service.joinStream(GUILD, VIEWER, "viewer", stream.id());
+        assertThat(service.redeem(stream.id(), invite.code().code()).identity()).isEqualTo(String.valueOf(VIEWER));
+
+        service.end(stream.id(), HOST);
+        assertThatThrownBy(() -> service.joinStream(GUILD, VIEWER, "viewer", stream.id()))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("já terminou");
+    }
+
+    @Test
     void joinFindsByStreamIdFromAutocomplete() {
         presence.put(GUILD, HOST, VOICE);
         presence.put(GUILD, HOST_2, VOICE);
