@@ -172,6 +172,10 @@ code { font-family: "Geist Mono", ui-monospace, monospace; background: var(--sur
 
 /* ---------- telas de código e de fim ---------- */
 .screen { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
+.overlay {
+    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 32px 16px;
+    background: rgba(7, 8, 11, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
 .join-card {
     width: min(440px, 100%); padding: 32px 28px 26px; display: flex; flex-direction: column; gap: 16px; border-radius: 26px;
     animation: rise 0.7s var(--ease) both;
@@ -211,6 +215,7 @@ code { font-family: "Geist Mono", ui-monospace, monospace; background: var(--sur
 }
 .code-field input::placeholder { color: rgba(255, 255, 255, 0.16); }
 .code-field input:focus { outline: none; border-color: rgba(255, 138, 61, 0.7); box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.15), 0 0 30px -6px rgba(255, 138, 61, 0.5); }
+.code-field input.title-input { font: 500 17px/1.3 "Geist", system-ui, sans-serif; letter-spacing: normal; text-align: left; text-transform: none; padding: 14px 16px; }
 .code-field input.complete { border-color: rgba(60, 207, 122, 0.7); box-shadow: 0 0 0 4px rgba(60, 207, 122, 0.14); }
 .shake { animation: shake 0.42s var(--ease); }
 @keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }

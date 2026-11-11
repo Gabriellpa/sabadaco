@@ -4,7 +4,11 @@ import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.admin.SecurityConfiguration;
 import com.gabriellpa.sabadaco.stream.DiscordLogin;
 import com.gabriellpa.sabadaco.stream.DiscordLogin.DiscordUser;
+import com.gabriellpa.sabadaco.stream.JoinCodeIssuer.JoinCode;
 import com.gabriellpa.sabadaco.stream.StreamChatService;
+import com.gabriellpa.sabadaco.stream.StreamNotifier;
+import com.gabriellpa.sabadaco.stream.StreamService.Invite;
+import com.gabriellpa.sabadaco.stream.StreamService.Opened;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamService.JoinTicket;
 import com.gabriellpa.sabadaco.stream.StreamSession;
@@ -23,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,6 +54,8 @@ class StreamApiControllerTest {
     StreamChatService chat;
     @MockitoBean
     DiscordLogin discord;
+    @MockitoBean
+    StreamNotifier notifier;
 
     @Test
     void exchangesCodeForTokenAndSessionWithoutLogin() throws Exception {
@@ -161,5 +168,55 @@ class StreamApiControllerTest {
         mvc.perform(get("/stream/activity/stream/../admin")).andExpect(status().isNotFound());
         mvc.perform(get("/stream/activity/actuator/health")).andExpect(status().isNotFound());
         mvc.perform(post("/stream/activity/admin/qualquer-coisa")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void activityOpensTheBrowserWithTheCodeInTheFragment() throws Exception {
+        var invite = new Invite(stream, "https://x/stream/" + STREAM_ID, code("ABCD-EFGH"));
+        when(streams.browserInvite("sess", STREAM_ID)).thenReturn(invite);
+        when(streams.browserInvite("sess", null)).thenReturn(invite);
+
+        mvc.perform(post("/stream/api/activity/browser").header("Authorization", "Bearer sess")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"streamId\":\"" + STREAM_ID + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://x/stream/" + STREAM_ID + "#code=ABCD-EFGH"));
+        mvc.perform(post("/stream/api/activity/browser").header("Authorization", "Bearer sess")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void activityStreamAnnouncesOnlyWhenItWasCreated() throws Exception {
+        var invite = new Invite(stream, "https://x/stream/" + STREAM_ID, code("ABCD-EFGH"));
+        when(streams.openFromActivity("sess", "Valorant")).thenReturn(new Opened(invite, true));
+        when(streams.openFromActivity("sess", "De novo")).thenReturn(new Opened(invite, false));
+
+        mvc.perform(post("/stream/api/activity/stream").header("Authorization", "Bearer sess")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Valorant\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://x/stream/" + STREAM_ID + "#code=ABCD-EFGH"));
+        mvc.perform(post("/stream/api/activity/stream").header("Authorization", "Bearer sess")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"De novo\"}"))
+                .andExpect(status().isOk());
+
+        verify(notifier, times(1)).started(stream);
+    }
+
+    @Test
+    void activityWithoutStreamInTheChannelStillJoinsTheRoom() throws Exception {
+        when(discord.exchange("discord-code")).thenReturn(new DiscordUser(2, "viewer"));
+        when(streams.joinFromDiscord(10, 20, 2, "viewer"))
+                .thenReturn(new JoinTicket("wss://x", "jwt", "g10-c20", "2", false, null, List.of(), "sess"));
+
+        mvc.perform(post("/stream/api/activity/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"discord-code\",\"guildId\":\"10\",\"channelId\":\"20\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stream").doesNotExist())
+                .andExpect(jsonPath("$.token").value("jwt"));
+    }
+
+    private static JoinCode code(String value) {
+        return new JoinCode(value, Instant.EPOCH);
     }
 }

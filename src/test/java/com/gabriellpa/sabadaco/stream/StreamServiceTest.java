@@ -129,18 +129,65 @@ class StreamServiceTest {
     }
 
     @Test
-    void activityNeedsThePersonInThatVoiceChannelAndALiveStream() {
+    void activityNeedsThePersonInThatVoiceChannelButNotALiveStream() {
         presence.put(GUILD, HOST, VOICE);
         presence.put(GUILD, VIEWER, OTHER_VOICE);
 
         assertThatThrownBy(() -> service.joinFromDiscord(GUILD, VOICE, VIEWER, "viewer"))
                 .isInstanceOf(UserFacingException.class).hasMessageContaining("canal de voz");
-        assertThatThrownBy(() -> service.joinFromDiscord(GUILD, VOICE, HOST, "gabriel"))
-                .isInstanceOf(UserFacingException.class).hasMessageContaining("Não há stream");
 
-        service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
-        assertThatThrownBy(() -> service.joinFromDiscord(GUILD, OTHER_VOICE, VIEWER, "viewer"))
-                .isInstanceOf(UserFacingException.class).hasMessageContaining("Não há stream");
+        // Canal sem stream: entra na sala vazia do canal, e a sessão sobrevive ao F5
+        var empty = service.joinFromDiscord(GUILD, VOICE, HOST, "gabriel");
+        assertThat(empty.stream()).isNull();
+        assertThat(empty.room()).isEqualTo("g10-c20");
+        assertThat(empty.canPublish()).isFalse();
+        assertThat(empty.channelStreams()).isEmpty();
+        assertThat(service.resume(empty.session()).stream()).isNull();
+    }
+
+    @Test
+    void activityOpensAStreamInItsVoiceChannelAndLinksTheBrowserWithACode() {
+        presence.put(GUILD, HOST, VOICE);
+        var session = service.joinFromDiscord(GUILD, VOICE, HOST, "gabriel").session();
+
+        var opened = service.openFromActivity(session, "Valorant");
+        assertThat(opened.created()).isTrue();
+        var stream = opened.invite().stream();
+        assertThat(stream.voiceChannelId()).isEqualTo(VOICE);
+        assertThat(stream.textChannelId()).isEqualTo(VOICE); // o chat fica no chat do próprio canal de voz
+        assertThat(opened.invite().linkWithCode())
+                .isEqualTo("https://sabadaco.example/stream/" + stream.id() + "#code=" + opened.invite().code().code());
+
+        // Abrir de novo não cria outra: devolve a dela
+        var again = service.openFromActivity(session, "Outra");
+        assertThat(again.created()).isFalse();
+        assertThat(again.invite().stream().id()).isEqualTo(stream.id());
+
+        // O código do link vale no navegador (o mais novo substitui o anterior) e dá permissão de transmitir
+        assertThat(service.redeem(stream.id(), again.invite().code().code()).canPublish()).isTrue();
+    }
+
+    @Test
+    void activityBrowserLinkIsForTheChosenStreamOfThatChannel() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, HOST_2, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        var valorant = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+        var minecraft = service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft").stream();
+        var viewer = service.joinFromDiscord(GUILD, VOICE, VIEWER, "viewer").session();
+
+        assertThat(service.browserInvite(viewer, null).stream().id()).isEqualTo(valorant.id());
+        var chosen = service.browserInvite(viewer, minecraft.id());
+        assertThat(chosen.stream().id()).isEqualTo(minecraft.id());
+        assertThat(service.redeem(minecraft.id(), chosen.code().code()).identity()).isEqualTo(String.valueOf(VIEWER));
+        assertThatThrownBy(() -> service.browserInvite(viewer, 123L))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("terminou");
+
+        // Quem saiu do canal de voz perde a sessão
+        presence.put(GUILD, VIEWER, OTHER_VOICE);
+        assertThatThrownBy(() -> service.browserInvite(viewer, null))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("saiu do canal de voz");
+        assertThatThrownBy(() -> service.resume(viewer)).isInstanceOf(UserFacingException.class);
     }
 
     @Test

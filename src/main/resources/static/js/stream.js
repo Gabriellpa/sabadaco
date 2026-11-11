@@ -110,6 +110,8 @@
         refreshTimer: null,
         statsTimer: null,
         quality: new Map(), // identidade → qualidade da conexão de quem transmite
+        autoWatch: false, // Atividade sem stream no canal: assiste a primeira que abrir
+        channelTitle: false, // Atividade entrou sem stream: o título é o do canal
     };
 
     // ---------- armazenamento (pode falhar em aba anônima: tudo continua funcionando sem ele) ----------
@@ -290,7 +292,10 @@
         setStreams(ticket.channelStreams);
         if (state.watching.size === 0) {
             const saved = parseJson(store.get(WATCHING_KEY));
-            (Array.isArray(saved) && saved.length ? saved : [ticket.stream.id]).forEach((id) => state.watching.add(id));
+            const initial = Array.isArray(saved) && saved.length ? saved : (ticket.stream ? [ticket.stream.id] : []);
+            initial.forEach((id) => state.watching.add(id));
+            // Atividade aberta num canal sem stream: a primeira que aparecer já entra na tela
+            state.autoWatch = state.watching.size === 0;
         }
 
         if (state.room) {
@@ -310,8 +315,13 @@
         show('room');
         setStatus('connected', 'Conectado');
         const title = $('room-title');
-        title.replaceChildren(el('strong', '', ticket.stream.title), document.createTextNode(' · ' + ticket.stream.hostName));
-        $('share-group').hidden = !state.canPublish;
+        state.channelTitle = !ticket.stream;
+        if (ticket.stream) {
+            title.replaceChildren(el('strong', '', ticket.stream.title), document.createTextNode(' · ' + ticket.stream.hostName));
+        }
+        // Na Atividade o botão abre o navegador (transmitir ou abrir uma stream), então aparece para todos
+        $('share-group').hidden = !(state.canPublish || ACTIVITY);
+        updateActivityHeader();
         updateShareButton();
         updateAudioButton();
         updateViewers();
@@ -384,7 +394,26 @@
         // Quem não está mais ao vivo sai da seleção
         const live = new Set(state.streams.map((s) => s.id));
         [...state.watching].forEach((id) => { if (!live.has(id)) state.watching.delete(id); });
+        if (state.autoWatch) {
+            const first = state.streams.find((s) => s.hostId !== state.identity);
+            if (first) {
+                state.watching.add(first.id);
+                state.autoWatch = false;
+            }
+        }
         renderStreams();
+        updateActivityHeader();
+    }
+
+    /** Atividade: "Abrir no navegador" só com stream no canal; sem stream de entrada, o título conta as do canal. */
+    function updateActivityHeader() {
+        if (!ACTIVITY || !state.room) return;
+        $('open-browser').hidden = state.streams.length === 0;
+        if (state.channelTitle) {
+            const live = state.streams.length;
+            $('room-title').replaceChildren(el('strong', '', 'Canal de voz'), document.createTextNode(' · '
+                + (live === 0 ? 'ninguém transmitindo' : live === 1 ? '1 stream ao vivo' : live + ' streams ao vivo')));
+        }
     }
 
     function streamOf(participant) {
@@ -497,7 +526,9 @@
         const anyWatching = state.streams.some((s) => s.hostId !== state.identity && state.watching.has(s.id));
         $('stage-empty-text').textContent = anyWatching
             ? 'Esperando quem transmite compartilhar a tela…'
-            : 'Escolha uma stream na lista para assistir.';
+            : state.streams.length === 0 && ACTIVITY
+                ? 'Ninguém transmitindo neste canal. Clique em Transmitir para começar.'
+                : 'Escolha uma stream na lista para assistir.';
     }
 
     async function refreshStreams() {
@@ -719,6 +750,10 @@
 
     // ---------- transmitir ----------
     async function toggleShare() {
+        if (ACTIVITY) {
+            broadcastFromActivity();
+            return;
+        }
         if (!state.room || !state.canPublish) return;
         const participant = state.room.localParticipant;
         const button = $('share-toggle');
@@ -731,10 +766,7 @@
                 toast('Transmitindo sem áudio. No Chrome/Edge, marque "Compartilhar áudio" ao escolher uma aba ou a tela inteira (janela sozinha não tem áudio).');
             }
         } catch (error) {
-            if (ACTIVITY && (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || (error && error.name === 'NotAllowedError'))) {
-                // O Discord pode não liberar a captura de tela dentro da Atividade
-                toast('Não deu para compartilhar a tela pela Atividade. Transmita pelo link do navegador (o /stream create manda por DM).');
-            } else if (error && error.name !== 'NotAllowedError') {
+            if (error && error.name !== 'NotAllowedError') {
                 toast('Não deu para compartilhar a tela: ' + error.message);
             }
         } finally {
@@ -743,9 +775,85 @@
         }
     }
 
+    // ---------- Atividade → navegador ----------
+    // O Discord bloqueia getDisplayMedia no iframe da Atividade (permissions policy "display-capture"). Quem quer
+    // transmitir (ou prefere assistir no navegador) recebe um link com código de uso único e o SDK abre o navegador.
+
+    /** @returns false se a pessoa recusou abrir o link no aviso do Discord */
+    async function openInBrowser(path, body) {
+        const { url } = await api(path, { method: 'POST', body });
+        try {
+            const result = await discordSdk.commands.openExternalLink({ url });
+            return !result || result.opened !== false;
+        } catch (error) {
+            throw new Error('O Discord não abriu o navegador' + (error && error.message ? ': ' + error.message : '.'));
+        }
+    }
+
+    async function watchInBrowser() {
+        const button = $('open-browser');
+        button.disabled = true;
+        try {
+            const watching = state.streams.find((s) => state.watching.has(s.id));
+            await openInBrowser('/activity/browser', { streamId: watching ? watching.id : null });
+        } catch (error) {
+            toast(error.message);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    async function broadcastFromActivity() {
+        if (state.streams.some((s) => s.hostId === state.identity)) {
+            // Já tem stream: só abre o navegador nela, pronto para compartilhar
+            const button = $('share-toggle');
+            button.disabled = true;
+            try {
+                if (await openInBrowser('/activity/browser', {})) toast('No navegador, clique em "Compartilhar tela".');
+            } catch (error) {
+                toast(error.message);
+            } finally {
+                button.disabled = false;
+            }
+            return;
+        }
+        $('broadcast-error').hidden = true;
+        $('broadcast-dialog').hidden = false;
+        $('broadcast-title').focus();
+    }
+
+    async function submitBroadcast(event) {
+        event.preventDefault();
+        const button = $('broadcast-submit');
+        const title = $('broadcast-title').value.trim();
+        if (!title) return;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span>Abrindo…';
+        try {
+            const opened = await openInBrowser('/activity/stream', { title });
+            $('broadcast-dialog').hidden = true;
+            $('broadcast-title').value = '';
+            toast(opened
+                ? 'Stream aberta. No navegador, clique em "Compartilhar tela".'
+                : 'Stream aberta. Clique em Transmitir de novo para abrir o navegador.');
+            scheduleRefresh();
+        } catch (error) {
+            $('broadcast-error').textContent = error.message;
+            $('broadcast-error').hidden = false;
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Abrir stream e navegador';
+        }
+    }
+
     function updateShareButton() {
         const button = $('share-toggle');
         const sharing = !!(state.room && state.room.localParticipant.isScreenShareEnabled);
+        if (ACTIVITY) {
+            button.textContent = '📡 Transmitir';
+            button.title = 'Abre o seu navegador pronto para compartilhar a tela (o Discord não deixa pela Atividade)';
+            return;
+        }
         button.textContent = sharing ? 'Parar de compartilhar' : 'Compartilhar tela';
         button.className = 'btn ' + (sharing ? 'btn-danger' : 'btn-accent');
         // Perfil e áudio valem a partir da próxima vez que compartilhar
@@ -910,6 +1018,11 @@
     $('rejoin').addEventListener('click', () => (state.session ? resume() : (ACTIVITY ? joinWithDiscord() : showJoin())));
     const activityRetry = $('activity-retry');
     if (activityRetry) activityRetry.addEventListener('click', joinWithDiscord);
+    if (ACTIVITY) {
+        $('open-browser').addEventListener('click', watchInBrowser);
+        $('broadcast-form').addEventListener('submit', submitBroadcast);
+        $('broadcast-cancel').addEventListener('click', () => { $('broadcast-dialog').hidden = true; });
+    }
     // Holofote: o brilho dos painéis de vidro segue o mouse
     document.addEventListener('pointermove', (event) => {
         const glass = event.target.closest && event.target.closest('.glass');
@@ -924,8 +1037,20 @@
         // Na Atividade a entrada é sempre pelo login do Discord (rápido e sem digitar nada)
         joinWithDiscord();
     } else {
-        state.session = store.get(SESSION_KEY);
-        if (state.session) resume();
-        else showJoin();
+        // Link aberto pela Atividade: o código vem no fragmento (#code=...), que não vai para o servidor
+        const fromLink = new URLSearchParams(location.hash.slice(1)).get('code');
+        if (fromLink) {
+            history.replaceState(null, '', location.pathname + location.search);
+            forgetSession();
+            showJoin();
+            if (codeInput) {
+                codeInput.value = fromLink;
+                form.requestSubmit();
+            }
+        } else {
+            state.session = store.get(SESSION_KEY);
+            if (state.session) resume();
+            else showJoin();
+        }
     }
 })();

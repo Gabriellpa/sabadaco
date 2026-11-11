@@ -30,6 +30,8 @@ import java.util.function.LongSupplier;
 public class StreamService {
 
     static final int MAX_TITLE_LENGTH = 100;
+    /** Sessão da Atividade aberta num canal sem stream (não há stream 0: os ids são snowflakes). */
+    static final long NO_STREAM = 0;
 
     private final LongSupplier ids;
     private final JoinCodeIssuer codes;
@@ -67,11 +69,24 @@ public class StreamService {
 
     /** Link e código que vão por DM. */
     public record Invite(StreamSession stream, String link, JoinCodeIssuer.JoinCode code) {
+
+        /**
+         * O link com o código no fragmento ({@code #code=...}): a página do navegador entra sozinha. O fragmento não
+         * vai para o servidor, então o código não aparece em log de proxy nem de ingress.
+         */
+        public String linkWithCode() {
+            return link + "#code=" + code.code();
+        }
+    }
+
+    /** @param created {@code false} quando a pessoa já tinha uma stream e o link é dela */
+    public record Opened(Invite invite, boolean created) {
     }
 
     /**
      * O que o navegador recebe para conectar na sala de mídia.
      *
+     * @param stream  a stream por onde a pessoa entrou; {@code null} na Atividade aberta num canal ainda sem stream
      * @param session token opaco da página (chat e lista de streams); revogado quando a pessoa sai do canal de voz
      */
     public record JoinTicket(String serverUrl, String token, String room, String identity, boolean canPublish,
@@ -158,7 +173,8 @@ public class StreamService {
     /**
      * Entrada pela Atividade do Discord: a pessoa já provou quem é pelo login do Discord (não tem código por DM) e
      * abriu a Atividade num canal de voz. Vale a mesma regra do código: ela precisa estar nesse canal agora. Entra na
-     * stream que ela transmite, se tiver, ou na primeira do canal; lá dentro vê todas as outras.
+     * stream que ela transmite, se tiver, ou na primeira do canal; lá dentro vê todas as outras. Sem stream no canal,
+     * entra na sala vazia (dá para abrir uma stream pela própria Atividade).
      */
     public JoinTicket joinFromDiscord(long guildId, long voiceChannelId, long userId, String displayName) {
         requireConfigured();
@@ -169,10 +185,42 @@ public class StreamService {
         var channelStreams = streamsIn(guildId, voiceChannelId);
         var stream = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst()
                 .or(() -> channelStreams.stream().findFirst())
-                .orElseThrow(() -> new UserFacingException(
-                        "Não há stream ao vivo neste canal. Para transmitir, use /stream create e abra a Atividade de novo."));
-        var session = sessions.open(stream.id(), guildId, voiceChannelId, userId, displayName);
-        return ticket(stream, userId, displayName, session.token());
+                .orElse(null);
+        var session = sessions.open(stream == null ? NO_STREAM : stream.id(), guildId, voiceChannelId, userId, displayName);
+        return ticket(guildId, voiceChannelId, stream, userId, displayName, session.token());
+    }
+
+    /**
+     * Link do navegador, já com código, para quem está na Atividade: assistir pelo navegador ou transmitir (só o
+     * navegador consegue compartilhar a tela; o Discord bloqueia na Atividade).
+     *
+     * @param streamId a stream que a pessoa quer abrir; {@code null} = a dela, se tiver, ou a primeira do canal
+     */
+    public Invite browserInvite(String sessionToken, Long streamId) {
+        requireConfigured();
+        var session = sessionInItsChannel(sessionToken);
+        var channelStreams = streamsIn(session.guildId(), session.voiceChannelId());
+        var stream = (streamId != null
+                ? channelStreams.stream().filter(s -> s.id() == streamId).findFirst()
+                : channelStreams.stream().filter(s -> s.hostUserId() == session.userId()).findFirst()
+                        .or(() -> channelStreams.stream().findFirst()))
+                .orElseThrow(() -> new UserFacingException(streamId != null
+                        ? "Esta stream já terminou." : "Não há stream ao vivo neste canal."));
+        return invite(stream, session.userId(), session.displayName());
+    }
+
+    /**
+     * Abre uma stream pela Atividade, no canal de voz dela (o chat da stream fica no chat do próprio canal de voz).
+     * Se a pessoa já transmite, devolve o link da stream dela em vez de abrir outra.
+     */
+    public Opened openFromActivity(String sessionToken, String title) {
+        requireConfigured();
+        var session = sessionInItsChannel(sessionToken);
+        var hosted = hostedBy(session.guildId(), session.userId());
+        if (hosted.isPresent()) {
+            return new Opened(invite(hosted.get(), session.userId(), session.displayName()), false);
+        }
+        return new Opened(create(session.guildId(), session.voiceChannelId(), session.userId(), session.displayName(), title), true);
     }
 
     /**
@@ -190,8 +238,13 @@ public class StreamService {
         }
         var stream = Optional.ofNullable(live.get(session.streamId()))
                 .or(() -> streamsIn(session.guildId(), session.voiceChannelId()).stream().findFirst())
-                .orElseThrow(() -> new UserFacingException("Não há stream ao vivo neste canal agora."));
-        return ticket(stream, session.userId(), session.displayName(), session.token());
+                .orElse(null);
+        if (stream == null && session.streamId() != NO_STREAM) {
+            throw new UserFacingException("Não há stream ao vivo neste canal agora.");
+        }
+        // Sessão da Atividade num canal sem stream: volta para a sala vazia
+        return ticket(session.guildId(), session.voiceChannelId(), stream, session.userId(), session.displayName(),
+                session.token());
     }
 
     /** Streams ao vivo no canal de voz da sessão (a página usa para dar nome às telas e montar a lista). */
@@ -281,13 +334,30 @@ public class StreamService {
 
     /** O token diz se a pessoa pode transmitir e, no metadata, qual stream é a dela (a página usa para dar nome à tela). */
     private JoinTicket ticket(StreamSession stream, long userId, String displayName, String sessionToken) {
-        var channelStreams = streamsIn(stream.guildId(), stream.voiceChannelId());
+        return ticket(stream.guildId(), stream.voiceChannelId(), stream, userId, displayName, sessionToken);
+    }
+
+    private JoinTicket ticket(long guildId, long voiceChannelId, StreamSession stream, long userId, String displayName,
+                              String sessionToken) {
+        var channelStreams = streamsIn(guildId, voiceChannelId);
         var hosted = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst();
         var identity = String.valueOf(userId);
-        var token = media.token(stream.room(), identity, displayName, hosted.isPresent(),
+        var room = StreamSession.roomOf(guildId, voiceChannelId);
+        var token = media.token(room, identity, displayName, hosted.isPresent(),
                 hosted.map(s -> String.valueOf(s.id())).orElse(""));
-        return new JoinTicket(media.serverUrl(), token, stream.room(), identity, hosted.isPresent(), stream, channelStreams,
+        return new JoinTicket(media.serverUrl(), token, room, identity, hosted.isPresent(), stream, channelStreams,
                 sessionToken);
+    }
+
+    /** A sessão, desde que a pessoa continue no canal de voz dela (senão a sessão é revogada). */
+    private ViewerSessions.ViewerSession sessionInItsChannel(String token) {
+        var session = session(token);
+        var current = presence.voiceChannelOf(session.guildId(), session.userId());
+        if (current.isEmpty() || current.get() != session.voiceChannelId()) {
+            sessions.revoke(session.guildId(), session.voiceChannelId(), session.userId());
+            throw new UserFacingException("Você saiu do canal de voz. Entre de novo e abra a Atividade.");
+        }
+        return session;
     }
 
     private ViewerSessions.ViewerSession session(String token) {
