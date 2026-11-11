@@ -48,10 +48,6 @@ public class StreamApiController {
     public record ActivityLoginRequest(String code, String guildId, String channelId) {
     }
 
-    /** @param accessToken a página devolve ao SDK do Discord ({@code authenticate}) */
-    public record ActivityLoginResponse(String accessToken, JoinResponse ticket) {
-    }
-
     /** IDs vão como texto: snowflakes passam de 2^53 e o JavaScript arredondaria. */
     public record StreamView(String id, String title, String hostId, String hostName) {
         static StreamView of(StreamSession stream) {
@@ -80,12 +76,12 @@ public class StreamApiController {
      * Atividade, abre a sessão como o código por DM faria.
      */
     @PostMapping("/activity/login")
-    public ActivityLoginResponse activityLogin(@RequestBody ActivityLoginRequest request) {
+    public JoinResponse activityLogin(@RequestBody ActivityLoginRequest request) {
         long guildId = id(request.guildId());
         long channelId = id(request.channelId());
         var user = discord.exchange(request.code());
         var ticket = streams.joinFromDiscord(guildId, channelId, user.id(), user.displayName());
-        return new ActivityLoginResponse(user.accessToken(), JoinResponse.of(ticket));
+        return JoinResponse.of(ticket);
     }
 
     /** Novo token do LiveKit pela sessão (F5, conexão caiu, passou a transmitir). */

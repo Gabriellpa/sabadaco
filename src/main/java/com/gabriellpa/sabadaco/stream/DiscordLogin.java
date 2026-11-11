@@ -6,10 +6,8 @@ package com.gabriellpa.sabadaco.stream;
  */
 public interface DiscordLogin {
 
-    /**
-     * @param accessToken token OAuth da pessoa: a página devolve ao SDK ({@code authenticate}); o bot não guarda
-     */
-    record DiscordUser(long id, String displayName, String accessToken) {
+    /** Quem abriu a Atividade. O token OAuth da pessoa só serve para descobrir isso e é descartado. */
+    record DiscordUser(long id, String displayName) {
     }
 
     /** Sem o client secret do app, a Atividade fica desativada. */

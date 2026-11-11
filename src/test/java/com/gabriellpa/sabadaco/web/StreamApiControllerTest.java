@@ -124,7 +124,7 @@ class StreamApiControllerTest {
 
     @Test
     void activityLoginExchangesDiscordCodeAndJoinsTheChannelStream() throws Exception {
-        when(discord.exchange("discord-code")).thenReturn(new DiscordUser(2, "viewer", "access"));
+        when(discord.exchange("discord-code")).thenReturn(new DiscordUser(2, "viewer"));
         when(streams.joinFromDiscord(10, 20, 2, "viewer"))
                 .thenReturn(new JoinTicket("wss://x", "jwt", "g10-c20", "2", false, stream, List.of(stream), "sess"));
 
@@ -132,9 +132,9 @@ class StreamApiControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"discord-code\",\"guildId\":\"10\",\"channelId\":\"20\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").value("access"))
-                .andExpect(jsonPath("$.ticket.token").value("jwt"))
-                .andExpect(jsonPath("$.ticket.session").value("sess"));
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.token").value("jwt"))
+                .andExpect(jsonPath("$.session").value("sess"));
     }
 
     @Test

@@ -249,14 +249,12 @@
             const { code } = await discordSdk.commands.authorize({
                 client_id: clientId, response_type: 'code', state: '', prompt: 'none', scope: ['identify'],
             });
-            const login = await api('/activity/login', {
+            // O bot troca o código por quem a pessoa é e devolve o mesmo acesso que o código da DM daria
+            const ticket = await api('/activity/login', {
                 method: 'POST', auth: false,
                 body: { code, guildId: discordSdk.guildId, channelId: discordSdk.channelId },
             });
-            try {
-                await discordSdk.commands.authenticate({ access_token: login.accessToken });
-            } catch { /* só serve para outros comandos do SDK; a stream não depende dele */ }
-            await connect(login.ticket);
+            await connect(ticket);
         } catch (error) {
             show('join');
             setStatus('error', 'Desconectado');

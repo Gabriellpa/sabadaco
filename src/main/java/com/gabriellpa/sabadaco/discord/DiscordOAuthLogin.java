@@ -90,7 +90,7 @@ public class DiscordOAuthLogin implements DiscordLogin {
             throw rejected();
         }
         var name = user.path("global_name").asString("");
-        return new DiscordUser(Long.parseLong(id), name.isBlank() ? user.path("username").asString("Alguém") : name, accessToken);
+        return new DiscordUser(Long.parseLong(id), name.isBlank() ? user.path("username").asString("Alguém") : name);
     }
 
     private JsonNode send(HttpRequest request) {

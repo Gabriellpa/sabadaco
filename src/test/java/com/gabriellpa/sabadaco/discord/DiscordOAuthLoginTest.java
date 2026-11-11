@@ -50,7 +50,6 @@ class DiscordOAuthLoginTest {
 
         assertThat(user.id()).isEqualTo(334670701011271682L);
         assertThat(user.displayName()).isEqualTo("Gabriel");
-        assertThat(user.accessToken()).isEqualTo("user-token");
         assertThat(tokenForm.get()).contains("client_id=888", "client_secret=segredo", "grant_type=authorization_code", "code=abc");
         assertThat(authorization.get()).isEqualTo("Bearer user-token");
     }
