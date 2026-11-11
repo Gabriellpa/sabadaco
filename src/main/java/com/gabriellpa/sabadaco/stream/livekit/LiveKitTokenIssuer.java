@@ -35,10 +35,13 @@ public class LiveKitTokenIssuer implements MediaTokenIssuer {
     }
 
     @Override
-    public String token(String room, String identity, String displayName, boolean canPublish) {
+    public String token(String room, String identity, String displayName, boolean canPublish, String metadata) {
         var token = new AccessToken(properties.apiKey(), properties.apiSecret());
         token.setIdentity(identity);
         token.setName(displayName);
+        if (metadata != null && !metadata.isEmpty()) {
+            token.setMetadata(metadata);
+        }
         token.setTtl(properties.tokenTtl().toMillis());
         token.addGrants(new RoomJoin(true), new RoomName(room), new CanSubscribe(true),
                 new CanPublish(canPublish), new CanPublishData(false));

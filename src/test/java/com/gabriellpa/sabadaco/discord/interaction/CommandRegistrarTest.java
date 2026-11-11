@@ -42,7 +42,7 @@ class CommandRegistrarTest {
     static class Config {
         @Bean
         DiscordProperties discordProperties() {
-            return new DiscordProperties("token", null);
+            return new DiscordProperties("token", null, false);
         }
     }
 

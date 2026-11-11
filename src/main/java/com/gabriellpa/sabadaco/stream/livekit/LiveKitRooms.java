@@ -3,6 +3,7 @@ package com.gabriellpa.sabadaco.stream.livekit;
 import com.gabriellpa.sabadaco.stream.MediaRooms;
 import com.gabriellpa.sabadaco.stream.StreamProperties;
 import io.livekit.server.RoomServiceClient;
+import livekit.LivekitModels.DataPacket;
 import livekit.LivekitModels.ParticipantPermission;
 import lombok.extern.slf4j.Slf4j;
 import retrofit2.Call;
@@ -44,6 +45,13 @@ public class LiveKitRooms implements MediaRooms {
         if (client != null) {
             run("tirar a transmissão de " + identity + " em " + room,
                     client.updateParticipant(room, identity, null, null, VIEW_ONLY));
+        }
+    }
+
+    @Override
+    public void broadcast(String room, byte[] data) {
+        if (client != null) {
+            run("enviar dados para " + room, client.sendData(room, data, DataPacket.Kind.RELIABLE));
         }
     }
 

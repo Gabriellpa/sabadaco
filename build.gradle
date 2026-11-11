@@ -53,6 +53,10 @@ dependencies {
     implementation("org.webjars.npm:idiomorph:0.7.4") {
         because "HTMX morph swap: polling updates cards in place instead of re-creating them (no flicker)"
     }
+    implementation("org.webjars.npm:livekit-client:2.21.0") {
+        transitive = false
+        because "Stream page: connects the browser to LiveKit (UMD bundle, no frontend build)"
+    }
     implementation("org.webjars:webjars-locator-lite") {
         because "Version-agnostic /webjars/** URLs"
     }

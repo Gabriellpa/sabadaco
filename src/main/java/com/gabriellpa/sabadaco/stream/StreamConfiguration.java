@@ -28,6 +28,11 @@ public class StreamConfiguration {
     }
 
     @Bean
+    public ViewerSessions viewerSessions() {
+        return new ViewerSessions(Clock.systemUTC());
+    }
+
+    @Bean
     public MediaRooms mediaRooms(StreamProperties properties) {
         return new LiveKitRooms(properties.livekit());
     }

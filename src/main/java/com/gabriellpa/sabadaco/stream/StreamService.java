@@ -35,6 +35,7 @@ public class StreamService {
     private final JoinCodeIssuer codes;
     private final MediaTokenIssuer media;
     private final MediaRooms rooms;
+    private final ViewerSessions sessions;
     private final VoicePresence presence;
     private final DiscordAdmins admins;
     private final Clock clock;
@@ -46,17 +47,18 @@ public class StreamService {
 
     @Autowired
     public StreamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media, MediaRooms rooms,
-                         VoicePresence presence, DiscordAdmins admins) {
-        this(snowflakes(properties.node()), codes, media, rooms, presence, admins, Clock.systemUTC(),
+                         ViewerSessions sessions, VoicePresence presence, DiscordAdmins admins) {
+        this(snowflakes(properties.node()), codes, media, rooms, sessions, presence, admins, Clock.systemUTC(),
                 properties.publicUrl());
     }
 
     StreamService(LongSupplier ids, JoinCodeIssuer codes, MediaTokenIssuer media, MediaRooms rooms,
-                  VoicePresence presence, DiscordAdmins admins, Clock clock, String publicUrl) {
+                  ViewerSessions sessions, VoicePresence presence, DiscordAdmins admins, Clock clock, String publicUrl) {
         this.ids = ids;
         this.codes = codes;
         this.media = media;
         this.rooms = rooms;
+        this.sessions = sessions;
         this.presence = presence;
         this.admins = admins;
         this.clock = clock;
@@ -67,9 +69,13 @@ public class StreamService {
     public record Invite(StreamSession stream, String link, JoinCodeIssuer.JoinCode code) {
     }
 
-    /** O que o navegador recebe para conectar na sala de mídia. */
+    /**
+     * O que o navegador recebe para conectar na sala de mídia.
+     *
+     * @param session token opaco da página (chat e lista de streams); revogado quando a pessoa sai do canal de voz
+     */
     public record JoinTicket(String serverUrl, String token, String room, String identity, boolean canPublish,
-                             StreamSession stream, List<StreamSession> channelStreams) {
+                             StreamSession stream, List<StreamSession> channelStreams, String session) {
     }
 
     /**
@@ -145,11 +151,33 @@ public class StreamService {
         if (current.isEmpty() || current.get() != stream.voiceChannelId()) {
             throw new UserFacingException("Entre no canal de voz da stream e peça um novo código.");
         }
-        var channelStreams = streamsIn(stream.guildId(), stream.voiceChannelId());
-        boolean canPublish = channelStreams.stream().anyMatch(s -> s.hostUserId() == grant.userId());
-        var identity = String.valueOf(grant.userId());
-        var token = media.token(stream.room(), identity, grant.displayName(), canPublish);
-        return new JoinTicket(media.serverUrl(), token, stream.room(), identity, canPublish, stream, channelStreams);
+        var session = sessions.open(stream.id(), stream.guildId(), stream.voiceChannelId(), grant.userId(), grant.displayName());
+        return ticket(stream, grant.userId(), grant.displayName(), session.token());
+    }
+
+    /**
+     * Novo acesso à sala com a sessão da página, sem código: é o que faz o F5 (ou cair a conexão) não pedir outro
+     * código. Vale enquanto a pessoa continuar no canal de voz; também atualiza a permissão de transmitir (quem
+     * abriu uma stream depois de entrar passa a poder compartilhar a tela).
+     */
+    public JoinTicket resume(String sessionToken) {
+        requireConfigured();
+        var session = session(sessionToken);
+        var current = presence.voiceChannelOf(session.guildId(), session.userId());
+        if (current.isEmpty() || current.get() != session.voiceChannelId()) {
+            sessions.revoke(session.guildId(), session.voiceChannelId(), session.userId());
+            throw new UserFacingException("Você saiu do canal de voz da stream. Entre de novo e peça outro código.");
+        }
+        var stream = Optional.ofNullable(live.get(session.streamId()))
+                .or(() -> streamsIn(session.guildId(), session.voiceChannelId()).stream().findFirst())
+                .orElseThrow(() -> new UserFacingException("Não há stream ao vivo neste canal agora."));
+        return ticket(stream, session.userId(), session.displayName(), session.token());
+    }
+
+    /** Streams ao vivo no canal de voz da sessão (a página usa para dar nome às telas e montar a lista). */
+    public List<StreamSession> channelStreams(String sessionToken) {
+        var session = session(sessionToken);
+        return streamsIn(session.guildId(), session.voiceChannelId());
     }
 
     /**
@@ -181,6 +209,7 @@ public class StreamService {
      */
     public List<StreamSession> leftVoiceChannel(long guildId, long userId, long leftVoiceChannelId) {
         codes.revoke(guildId, userId);
+        sessions.revoke(guildId, leftVoiceChannelId, userId);
         var ended = streamsIn(guildId, leftVoiceChannelId).stream()
                 .filter(stream -> stream.hostUserId() == userId)
                 .toList();
@@ -228,6 +257,22 @@ public class StreamService {
         return live.values().stream()
                 .filter(stream -> stream.guildId() == guildId && stream.hostUserId() == userId)
                 .findFirst();
+    }
+
+    /** O token diz se a pessoa pode transmitir e, no metadata, qual stream é a dela (a página usa para dar nome à tela). */
+    private JoinTicket ticket(StreamSession stream, long userId, String displayName, String sessionToken) {
+        var channelStreams = streamsIn(stream.guildId(), stream.voiceChannelId());
+        var hosted = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst();
+        var identity = String.valueOf(userId);
+        var token = media.token(stream.room(), identity, displayName, hosted.isPresent(),
+                hosted.map(s -> String.valueOf(s.id())).orElse(""));
+        return new JoinTicket(media.serverUrl(), token, stream.room(), identity, hosted.isPresent(), stream, channelStreams,
+                sessionToken);
+    }
+
+    private ViewerSessions.ViewerSession session(String token) {
+        return sessions.get(token)
+                .orElseThrow(() -> new UserFacingException("Sua sessão terminou. Peça um novo código com /stream join."));
     }
 
     private Invite invite(StreamSession stream, long userId, String displayName) {

@@ -11,6 +11,9 @@ discord:
   token: ${DISCORD_BOT_TOKEN}
   # Registra os comandos só neste servidor (propaga na hora). Vazio = comandos globais.
   dev-guild-id: ${DISCORD_DEV_GUILD_ID:}
+  # Espelha o chat do canal de texto na página da stream. Ligue antes "Message Content Intent" no Developer Portal
+  # (Bot → Privileged Gateway Intents), senão o bot não conecta.
+  message-content: ${DISCORD_MESSAGE_CONTENT:false}
 
 sabadaco:
   storage:

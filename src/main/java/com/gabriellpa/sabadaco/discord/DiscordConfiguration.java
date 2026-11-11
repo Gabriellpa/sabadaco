@@ -12,6 +12,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.EnumSet;
 import java.util.List;
 
 @Configuration
@@ -20,7 +21,14 @@ public class DiscordConfiguration {
 
     @Bean(destroyMethod = "shutdown")
     public JDA jda(DiscordProperties properties, List<ListenerAdapter> listeners) {
-        return JDABuilder.createLight(properties.token(), GatewayIntent.GUILD_VOICE_STATES)
+        var intents = EnumSet.of(GatewayIntent.GUILD_VOICE_STATES);
+        if (properties.messageContent()) {
+            // Chat da stream: espelha na página o que é escrito no canal de texto. Sem a intent ligada no
+            // Developer Portal o login falha (4014), por isso é opcional.
+            intents.add(GatewayIntent.GUILD_MESSAGES);
+            intents.add(GatewayIntent.MESSAGE_CONTENT);
+        }
+        return JDABuilder.createLight(properties.token(), intents)
                 // Necessário para saber em qual canal de voz o usuário está
                 .enableCache(CacheFlag.VOICE_STATE)
                 .setMemberCachePolicy(MemberCachePolicy.VOICE)

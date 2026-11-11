@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title th:text="${stream != null} ? |${stream.title()} · Sabadaço stream| : 'Stream · Sabadaço'">Stream · Sabadaço</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;600&display=swap">
+    <link rel="stylesheet" th:href="@{/css/stream.css}">
+    <script th:src="@{/webjars/livekit-client/dist/livekit-client.umd.js}" defer></script>
+    <script th:src="@{/js/stream.js}" defer></script>
+</head>
+<body>
+<div id="app" th:attr="data-stream-id=${streamId}">
+
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark">📺</span><span>Sabadaço</span><span class="brand-sub">stream</span></div>
+        <div class="topbar-title" id="room-title"></div>
+        <div class="topbar-actions">
+            <button type="button" class="btn btn-ghost" id="audio-unlock" hidden>🔈 Ativar som</button>
+            <button type="button" class="btn btn-accent" id="share-toggle" hidden>Compartilhar tela</button>
+            <span class="status" id="status" data-state="idle"><span class="dot"></span><span id="status-text">Desconectado</span></span>
+        </div>
+    </header>
+
+    <!-- 1) Código: o link sozinho não basta, cada pessoa tem o seu código (uso único, 5 min) -->
+    <section class="screen" id="join-screen" hidden>
+        <form class="card join-card" id="join-form" autocomplete="off">
+            <div class="live-pill" th:if="${stream != null}"><span class="dot"></span>Ao vivo</div>
+            <div class="live-pill ended" th:if="${stream == null}">Encerrada</div>
+            <h1 th:text="${stream != null} ? ${stream.title()} : 'Esta stream terminou'">Stream</h1>
+            <p class="muted" th:if="${stream != null}">Transmitida por <strong th:text="${stream.hostName()}">alguém</strong>.
+                Digite o código que o bot mandou na sua DM.</p>
+            <p class="muted" th:if="${stream == null}">Se ainda tiver uma stream no seu canal de voz, use
+                <code>/stream join</code> no Discord para receber um link novo.</p>
+            <label class="code-field" th:if="${stream != null}">
+                <span>Código</span>
+                <input id="code" name="code" inputmode="text" maxlength="12" placeholder="ABCD-EFGH" spellcheck="false" autocapitalize="characters" required>
+            </label>
+            <button type="submit" class="btn btn-accent btn-block" id="join-button" th:if="${stream != null}">Entrar</button>
+            <p class="error" id="join-error" role="alert" hidden></p>
+            <p class="hint">Você precisa estar no mesmo canal de voz da stream. Se sair dele, a stream fecha aqui.</p>
+        </form>
+    </section>
+
+    <!-- 2) Sala: telas à esquerda, lista do canal e chat à direita -->
+    <main class="room" id="room-screen" hidden>
+        <section class="stage">
+            <div class="grid" id="grid" data-count="0"></div>
+            <div class="empty" id="stage-empty">
+                <div class="empty-icon">🖥️</div>
+                <p id="stage-empty-text">Esperando alguém compartilhar a tela…</p>
+            </div>
+        </section>
+        <aside class="side">
+            <section class="panel">
+                <h2>Ao vivo neste canal</h2>
+                <ul class="stream-list" id="stream-list"></ul>
+            </section>
+            <section class="panel chat">
+                <h2>Chat <span class="muted small" id="chat-channel"></span></h2>
+                <ol class="messages" id="messages" aria-live="polite">
+                    <li class="system">As mensagens daqui vão para o canal de texto da stream no Discord.</li>
+                </ol>
+                <form class="composer" id="chat-form" autocomplete="off">
+                    <input id="chat-input" maxlength="500" placeholder="Mensagem" aria-label="Mensagem">
+                    <button type="submit" class="btn btn-accent" aria-label="Enviar">➤</button>
+                </form>
+                <p class="error small" id="chat-error" role="alert" hidden></p>
+            </section>
+        </aside>
+    </main>
+
+    <!-- 3) Fim: saiu do canal de voz, conexão caiu, abriu em outra aba -->
+    <section class="screen" id="ended-screen" hidden>
+        <div class="card join-card">
+            <h1 id="ended-title">Você saiu da stream</h1>
+            <p class="muted" id="ended-text"></p>
+            <button type="button" class="btn btn-accent btn-block" id="rejoin" hidden>Reconectar</button>
+        </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+</div>
+</body>
+</html>
