@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.localization.LocalizationFunction;
 import net.dv8tion.jda.api.interactions.commands.localization.ResourceBundleLocalizationFunction;
+import net.dv8tion.jda.api.requests.RestAction;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -61,9 +62,19 @@ public class CommandRegistrar extends ListenerAdapter {
             stale(existing, commands).forEach(command -> command.delete().queue(
                     done -> log.info("Comando /{} removido", command.getName()),
                     error -> log.error("Falha ao remover o comando /{}", command.getName(), error)));
-            commands.forEach(data -> jda.upsertCommand(data).queue(null,
-                    error -> log.error("Falha ao registrar o comando /{}", data.getName(), error)));
-            log.info("{} comandos registrados globalmente", commands.size());
+            // Cada upsert vira um Result para um erro não esconder os outros; o log sai quando todos respondem
+            var upserts = commands.stream().map(data -> jda.upsertCommand(data).mapToResult()).toList();
+            RestAction.allOf(upserts).queue(results -> {
+                int failed = 0;
+                for (int i = 0; i < results.size(); i++) {
+                    if (results.get(i).isFailure()) {
+                        failed++;
+                        log.error("Falha ao registrar o comando /{}", commands.get(i).getName(), results.get(i).getFailure());
+                    }
+                }
+                log.info("{} comandos registrados globalmente{}", results.size() - failed,
+                        failed > 0 ? " (" + failed + " falharam)" : "");
+            });
         }, error -> log.error("Falha ao ler os comandos registrados", error));
     }
 
