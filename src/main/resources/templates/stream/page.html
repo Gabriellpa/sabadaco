@@ -21,7 +21,15 @@
         <div class="topbar-title" id="room-title"></div>
         <div class="topbar-actions">
             <button type="button" class="btn btn-ghost" id="audio-unlock" hidden>🔈 Ativar som</button>
-            <button type="button" class="btn btn-accent" id="share-toggle" hidden>Compartilhar tela</button>
+            <div class="share-group" id="share-group" hidden>
+                <div class="share-settings" id="share-settings" title="Valem na próxima vez que você compartilhar">
+                    <select id="share-profile" class="chip-select" aria-label="Qualidade da transmissão"></select>
+                    <label class="switch" title="Áudio da aba ou do sistema (Chrome/Edge)">
+                        <input type="checkbox" id="share-audio"><span class="switch-track"><span class="switch-thumb"></span></span><span>Áudio</span>
+                    </label>
+                </div>
+                <button type="button" class="btn btn-accent" id="share-toggle">Compartilhar tela</button>
+            </div>
             <span class="chip" id="viewers" hidden title="Pessoas na sala">👀 <span id="viewers-count">1</span></span>
             <span class="chip status" id="status" data-state="idle"><span class="dot"></span><span id="status-text">Desconectado</span></span>
         </div>
@@ -60,6 +68,10 @@
             <section class="glass panel">
                 <h2>Ao vivo neste canal <span class="count" id="stream-count">0</span></h2>
                 <ul class="stream-list" id="stream-list"></ul>
+            </section>
+            <section class="glass panel">
+                <h2>Na sala <span class="count" id="people-count">0</span></h2>
+                <ul class="people" id="people"></ul>
             </section>
             <section class="glass panel chat">
                 <h2>Chat do canal</h2>
