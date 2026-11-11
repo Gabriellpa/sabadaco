@@ -33,6 +33,11 @@ public final class Interactions {
                 .orElseThrow(() -> new UserFacingException("Entre em um canal de voz primeiro."));
     }
 
+    /** Nome que a pessoa usa neste servidor (apelido), ou o nome global fora dele. */
+    public static String displayName(Interaction event) {
+        return event.getMember() == null ? event.getUser().getEffectiveName() : event.getMember().getEffectiveName();
+    }
+
     public static String string(CommandInteractionPayload event, String option) {
         return Optional.ofNullable(event.getOption(option)).map(OptionMapping::getAsString).orElse(null);
     }

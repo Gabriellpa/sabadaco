@@ -34,6 +34,7 @@ public class StreamService {
     private final LongSupplier ids;
     private final JoinCodeIssuer codes;
     private final MediaTokenIssuer media;
+    private final MediaRooms rooms;
     private final VoicePresence presence;
     private final DiscordAdmins admins;
     private final Clock clock;
@@ -44,16 +45,18 @@ public class StreamService {
     static final Instant ID_EPOCH = Instant.parse("2026-01-01T00:00:00Z");
 
     @Autowired
-    public StreamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media,
+    public StreamService(StreamProperties properties, JoinCodeIssuer codes, MediaTokenIssuer media, MediaRooms rooms,
                          VoicePresence presence, DiscordAdmins admins) {
-        this(snowflakes(properties.node()), codes, media, presence, admins, Clock.systemUTC(), properties.publicUrl());
+        this(snowflakes(properties.node()), codes, media, rooms, presence, admins, Clock.systemUTC(),
+                properties.publicUrl());
     }
 
-    StreamService(LongSupplier ids, JoinCodeIssuer codes, MediaTokenIssuer media, VoicePresence presence,
-                  DiscordAdmins admins, Clock clock, String publicUrl) {
+    StreamService(LongSupplier ids, JoinCodeIssuer codes, MediaTokenIssuer media, MediaRooms rooms,
+                  VoicePresence presence, DiscordAdmins admins, Clock clock, String publicUrl) {
         this.ids = ids;
         this.codes = codes;
         this.media = media;
+        this.rooms = rooms;
         this.presence = presence;
         this.admins = admins;
         this.clock = clock;
@@ -101,7 +104,7 @@ public class StreamService {
      * Gera o código para assistir a uma stream do canal de voz onde a pessoa está. Ele só vale no link dessa
      * stream; lá dentro ela vê também as outras streams do canal.
      *
-     * @param query título, nome de quem transmite ou id dele; vazio = a primeira stream do canal
+     * @param query id da stream (autocomplete), título, nome de quem transmite ou id dele; vazio = a primeira do canal
      */
     public Invite join(long guildId, long userId, String displayName, String query) {
         requireConfigured();
@@ -112,6 +115,19 @@ public class StreamService {
         }
         var stream = find(streams, query)
                 .orElseThrow(() -> new UserFacingException("Nenhuma stream do seu canal de voz corresponde a \"" + query.strip() + "\"."));
+        return invite(stream, userId, displayName);
+    }
+
+    /** Código para uma stream específica (botão "Assistir" do card). A pessoa precisa estar no canal de voz dela. */
+    public Invite joinStream(long guildId, long userId, String displayName, long streamId) {
+        requireConfigured();
+        var stream = Optional.ofNullable(live.get(streamId))
+                .filter(s -> s.guildId() == guildId)
+                .orElseThrow(() -> new UserFacingException("Esta stream já terminou."));
+        var current = presence.voiceChannelOf(guildId, userId);
+        if (current.isEmpty() || current.get() != stream.voiceChannelId()) {
+            throw new UserFacingException("Entre no canal de voz da stream para assistir.");
+        }
         return invite(stream, userId, displayName);
     }
 
@@ -136,7 +152,10 @@ public class StreamService {
         return new JoinTicket(media.serverUrl(), token, stream.room(), identity, canPublish, stream, channelStreams);
     }
 
-    /** Encerra uma stream. Só quem transmite ou um admin do bot. */
+    /**
+     * Encerra uma stream. Só quem transmite ou um admin do bot. Quem transmitia perde a permissão de
+     * transmitir, mas continua na sala assistindo às outras streams do canal.
+     */
     public StreamSession end(long streamId, long userId) {
         var stream = Optional.ofNullable(live.get(streamId))
                 .orElseThrow(() -> new UserFacingException("Esta stream já terminou."));
@@ -144,17 +163,31 @@ public class StreamService {
             throw new UserFacingException("Só quem abriu a stream pode encerrá-la.");
         }
         live.remove(streamId);
+        rooms.revokePublish(stream.room(), String.valueOf(stream.hostUserId()));
         return stream;
     }
 
+    /** Encerra a stream que a pessoa está transmitindo neste servidor. */
+    public StreamSession endOwn(long guildId, long userId) {
+        var stream = hostedBy(guildId, userId)
+                .orElseThrow(() -> new UserFacingException("Você não tem nenhuma stream aberta."));
+        return end(stream.id(), userId);
+    }
+
     /**
-     * A pessoa saiu (ou trocou) de canal de voz: os códigos pendentes dela deixam de valer e a stream que
-     * ela transmitia termina. Devolve as streams encerradas, para o adaptador avisar o canal.
+     * A pessoa saiu (ou trocou) do canal de voz {@code leftVoiceChannelId}: os códigos pendentes dela deixam de
+     * valer, ela é desconectada da sala daquele canal e a stream que ela transmitia lá termina. Devolve as streams
+     * encerradas, para o adaptador avisar o canal de texto.
      */
-    public List<StreamSession> leftVoiceChannel(long guildId, long userId) {
+    public List<StreamSession> leftVoiceChannel(long guildId, long userId, long leftVoiceChannelId) {
         codes.revoke(guildId, userId);
-        var ended = hostedBy(guildId, userId).stream().toList();
+        var ended = streamsIn(guildId, leftVoiceChannelId).stream()
+                .filter(stream -> stream.hostUserId() == userId)
+                .toList();
         ended.forEach(stream -> live.remove(stream.id()));
+        if (media.isConfigured()) {
+            rooms.remove(StreamSession.roomOf(guildId, leftVoiceChannelId), String.valueOf(userId));
+        }
         return ended;
     }
 
@@ -218,7 +251,8 @@ public class StreamService {
             return streams.stream().findFirst();
         }
         var needle = query.strip().toLowerCase(Locale.ROOT);
-        return streams.stream().filter(s -> s.title().equalsIgnoreCase(needle)).findFirst()
+        return streams.stream().filter(s -> String.valueOf(s.id()).equals(needle)).findFirst()
+                .or(() -> streams.stream().filter(s -> s.title().equalsIgnoreCase(needle)).findFirst())
                 .or(() -> streams.stream().filter(s -> String.valueOf(s.hostUserId()).equals(needle)).findFirst())
                 .or(() -> streams.stream().filter(s -> s.hostName().equalsIgnoreCase(needle)).findFirst())
                 .or(() -> streams.stream().filter(s -> s.title().toLowerCase(Locale.ROOT).contains(needle)

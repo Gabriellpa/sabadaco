@@ -7,6 +7,9 @@ import com.gabriellpa.sabadaco.discord.ui.PlayerPanelUpdater;
 import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
+import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamInvites;
+import com.gabriellpa.sabadaco.stream.StreamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.ComponentScan;
@@ -37,6 +40,12 @@ class HelpCatalogTest {
     DiscordDirectory directory;
     @MockitoBean
     PlayerPanelUpdater panels;
+    @MockitoBean
+    StreamService streamService;
+    @MockitoBean
+    StreamInvites streamInvites;
+    @MockitoBean
+    StreamAnnouncements streamAnnouncements;
 
     @Autowired
     HelpCatalog catalog;
@@ -45,7 +54,7 @@ class HelpCatalogTest {
     void everyCommandHasSummaryAndAtLeastOneExampleUsingItsOwnName() {
         var entries = catalog.entries();
 
-        assertThat(entries).hasSize(21);
+        assertThat(entries).hasSize(24);
         assertThat(entries).allSatisfy(entry -> {
             assertThat(entry.help().summary()).isNotBlank();
             assertThat(entry.help().examples()).isNotEmpty()
@@ -58,6 +67,7 @@ class HelpCatalogTest {
         assertThat(catalog.find("/play")).get().extracting(HelpCatalog.Entry::ptName).isEqualTo("/tocar");
         assertThat(catalog.find("tocar")).get().extracting(HelpCatalog.Entry::key).isEqualTo("play");
         assertThat(catalog.find("playlist move")).get().extracting(HelpCatalog.Entry::ptName).isEqualTo("/playlist mover");
+        assertThat(catalog.find("stream create")).get().extracting(HelpCatalog.Entry::ptName).isEqualTo("/stream criar");
         assertThat(catalog.find("nada")).isEmpty();
     }
 
