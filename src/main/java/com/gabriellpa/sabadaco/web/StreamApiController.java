@@ -1,5 +1,7 @@
 package com.gabriellpa.sabadaco.web;
 
+import com.gabriellpa.sabadaco.UserFacingException;
+import com.gabriellpa.sabadaco.stream.DiscordLogin;
 import com.gabriellpa.sabadaco.stream.StreamChatService;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamService.JoinTicket;
@@ -34,11 +36,16 @@ public class StreamApiController {
 
     private final StreamService streams;
     private final StreamChatService chat;
+    private final DiscordLogin discord;
 
     public record JoinRequest(String code) {
     }
 
     public record ChatRequest(String text) {
+    }
+
+    /** O que a Atividade manda: o código OAuth do SDK e onde ela foi aberta (IDs como texto, ver {@link StreamView}). */
+    public record ActivityLoginRequest(String code, String guildId, String channelId) {
     }
 
     /** IDs vão como texto: snowflakes passam de 2^53 e o JavaScript arredondaria. */
@@ -64,6 +71,19 @@ public class StreamApiController {
         return JoinResponse.of(streams.redeem(streamId, request.code()));
     }
 
+    /**
+     * Entrada pela Atividade do Discord: troca o código OAuth pela pessoa e, se ela estiver no canal de voz da
+     * Atividade, abre a sessão como o código por DM faria.
+     */
+    @PostMapping("/activity/login")
+    public JoinResponse activityLogin(@RequestBody ActivityLoginRequest request) {
+        long guildId = id(request.guildId());
+        long channelId = id(request.channelId());
+        var user = discord.exchange(request.code());
+        var ticket = streams.joinFromDiscord(guildId, channelId, user.id(), user.displayName());
+        return JoinResponse.of(ticket);
+    }
+
     /** Novo token do LiveKit pela sessão (F5, conexão caiu, passou a transmitir). */
     @PostMapping("/resume")
     public JoinResponse resume(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
@@ -84,6 +104,14 @@ public class StreamApiController {
 
     private static List<StreamView> views(List<StreamSession> streams) {
         return streams.stream().map(StreamView::of).toList();
+    }
+
+    private static long id(String value) {
+        try {
+            return Long.parseLong(value == null ? "" : value.strip());
+        } catch (NumberFormatException invalid) {
+            throw new UserFacingException("Abra a Atividade dentro de um canal de voz.");
+        }
     }
 
     /** Sem cabeçalho vira {@code null}, e o serviço responde "sessão terminou" (403). */

@@ -14,6 +14,11 @@ discord:
   # Espelha o chat do canal de texto na página da stream. Ligue antes "Message Content Intent" no Developer Portal
   # (Bot → Privileged Gateway Intents), senão o bot não conecta.
   message-content: ${DISCORD_MESSAGE_CONTENT:false}
+  # Stream pela Atividade do Discord (/stream/activity). Sem o client secret a Atividade fica desligada; o link pelo
+  # navegador continua igual. O client id vazio usa o id do próprio bot.
+  activity:
+    client-id: ${DISCORD_CLIENT_ID:}
+    client-secret: ${DISCORD_CLIENT_SECRET:}
 
 sabadaco:
   storage:

@@ -106,6 +106,44 @@ class StreamServiceTest {
     }
 
     @Test
+    void activityJoinsTheStreamOfTheChannelWhereItWasOpened() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, HOST_2, VOICE);
+        presence.put(GUILD, VIEWER, VOICE);
+        service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
+        service.create(GUILD, TEXT, HOST_2, "leão", "Minecraft");
+
+        var viewer = service.joinFromDiscord(GUILD, VOICE, VIEWER, "viewer");
+        assertThat(viewer.stream().title()).isEqualTo("Valorant");
+        assertThat(viewer.canPublish()).isFalse();
+        assertThat(viewer.session()).isNotBlank();
+        assertThat(viewer.channelStreams()).hasSize(2);
+
+        // Quem transmite cai na própria stream e pode compartilhar a tela
+        var host = service.joinFromDiscord(GUILD, VOICE, HOST_2, "leão");
+        assertThat(host.stream().title()).isEqualTo("Minecraft");
+        assertThat(host.canPublish()).isTrue();
+
+        // A sessão serve para o F5/reconectar como a do código
+        assertThat(service.resume(viewer.session()).identity()).isEqualTo(String.valueOf(VIEWER));
+    }
+
+    @Test
+    void activityNeedsThePersonInThatVoiceChannelAndALiveStream() {
+        presence.put(GUILD, HOST, VOICE);
+        presence.put(GUILD, VIEWER, OTHER_VOICE);
+
+        assertThatThrownBy(() -> service.joinFromDiscord(GUILD, VOICE, VIEWER, "viewer"))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("canal de voz");
+        assertThatThrownBy(() -> service.joinFromDiscord(GUILD, VOICE, HOST, "gabriel"))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("Não há stream");
+
+        service.create(GUILD, TEXT, HOST, "gabriel", "Valorant");
+        assertThatThrownBy(() -> service.joinFromDiscord(GUILD, OTHER_VOICE, VIEWER, "viewer"))
+                .isInstanceOf(UserFacingException.class).hasMessageContaining("Não há stream");
+    }
+
+    @Test
     void redeemGivesViewerTokenForTheChannelRoom() {
         presence.put(GUILD, HOST, VOICE);
         presence.put(GUILD, VIEWER, VOICE);

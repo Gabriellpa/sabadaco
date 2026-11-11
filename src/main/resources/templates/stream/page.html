@@ -10,11 +10,12 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" th:href="@{/css/stream.css}">
     <script th:src="@{/webjars/livekit-client/dist/livekit-client.umd.js}" defer></script>
+    <script th:if="${activity}" th:src="@{/js/vendor/discord-embedded-app-sdk.js}" defer></script>
     <script th:src="@{/js/stream.js}" defer></script>
 </head>
 <body>
 <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
-<div id="app" th:attr="data-stream-id=${streamId}">
+<div id="app" th:attr="data-stream-id=${streamId},data-mode=${activity} ? 'activity' : 'link',data-client-id=${clientId}">
 
     <header class="topbar">
         <div class="brand"><span class="brand-mark">📺</span><span>Sabadaço</span><span class="brand-sub">stream</span></div>
@@ -35,9 +36,18 @@
         </div>
     </header>
 
-    <!-- 1) Código: o link sozinho não basta, cada pessoa tem o seu código (uso único, 5 min) -->
+    <!-- 1) Código: o link sozinho não basta, cada pessoa tem o seu código (uso único, 5 min).
+         Na Atividade do Discord não tem código: quem entra é a conta do Discord que abriu a Atividade. -->
     <section class="screen" id="join-screen" hidden>
-        <form class="glass join-card halo" id="join-form" autocomplete="off">
+        <div class="glass join-card halo" id="join-form" th:if="${activity}">
+            <div class="live-pill"><span class="dot"></span>Atividade</div>
+            <h1>Stream do canal</h1>
+            <p class="muted" id="activity-text">Entrando com a sua conta do Discord…</p>
+            <p class="error" id="join-error" role="alert" hidden></p>
+            <button type="button" class="btn btn-accent btn-block" id="activity-retry" hidden>Tentar de novo</button>
+            <p class="hint">Mostra a stream do canal de voz onde a Atividade foi aberta.</p>
+        </div>
+        <form class="glass join-card halo" id="join-form" autocomplete="off" th:unless="${activity}">
             <div class="live-pill" th:if="${stream != null}"><span class="dot"></span>Ao vivo</div>
             <div class="live-pill ended" th:if="${stream == null}">Encerrada</div>
             <h1 th:text="${stream != null} ? ${stream.title()} : 'Esta stream terminou'">Stream</h1>

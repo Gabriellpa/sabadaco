@@ -156,6 +156,26 @@ public class StreamService {
     }
 
     /**
+     * Entrada pela Atividade do Discord: a pessoa já provou quem é pelo login do Discord (não tem código por DM) e
+     * abriu a Atividade num canal de voz. Vale a mesma regra do código: ela precisa estar nesse canal agora. Entra na
+     * stream que ela transmite, se tiver, ou na primeira do canal; lá dentro vê todas as outras.
+     */
+    public JoinTicket joinFromDiscord(long guildId, long voiceChannelId, long userId, String displayName) {
+        requireConfigured();
+        var current = presence.voiceChannelOf(guildId, userId);
+        if (current.isEmpty() || current.get() != voiceChannelId) {
+            throw new UserFacingException("Entre no canal de voz onde a Atividade foi aberta.");
+        }
+        var channelStreams = streamsIn(guildId, voiceChannelId);
+        var stream = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst()
+                .or(() -> channelStreams.stream().findFirst())
+                .orElseThrow(() -> new UserFacingException(
+                        "Não há stream ao vivo neste canal. Para transmitir, use /stream create e abra a Atividade de novo."));
+        var session = sessions.open(stream.id(), guildId, voiceChannelId, userId, displayName);
+        return ticket(stream, userId, displayName, session.token());
+    }
+
+    /**
      * Novo acesso à sala com a sessão da página, sem código: é o que faz o F5 (ou cair a conexão) não pedir outro
      * código. Vale enquanto a pessoa continuar no canal de voz; também atualiza a permissão de transmitir (quem
      * abriu uma stream depois de entrar passa a poder compartilhar a tela).

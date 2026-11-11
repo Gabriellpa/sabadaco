@@ -7,6 +7,10 @@
  *     quem assiste pode limitar a qualidade de cada tela e vê resolução, fps e a conexão de quem transmite;
  *  4. o chat chega como dado da sala (enviado pelo bot) e sai por POST /stream/api/chat, que posta no Discord.
  * A sessão fica no sessionStorage da aba: com F5 a página pede outro token (POST /stream/api/resume) sem código.
+ *
+ * A mesma página roda como Atividade do Discord (data-mode="activity"): em vez do código, entra com o login do
+ * Discord pelo SDK (POST /stream/api/activity/login) no canal de voz onde a Atividade foi aberta, e o LiveKit passa
+ * pelo proxy do Discord (mapeamento /livekit).
  */
 (() => {
     'use strict';
@@ -22,6 +26,9 @@
 
     const app = document.getElementById('app');
     const streamId = app.dataset.streamId;
+    const ACTIVITY = app.dataset.mode === 'activity';
+    /** Como pedir um novo acesso, no texto das telas de erro. */
+    const AGAIN = ACTIVITY ? 'abra a Atividade de novo' : 'peça outro código com /stream join';
     const $ = (id) => document.getElementById(id);
 
     const SESSION_KEY = 'sabadaco-stream-session:' + streamId;
@@ -214,11 +221,60 @@
         } catch (error) {
             if (error.status === 403) {
                 forgetSession();
-                showJoin(error.message);
+                if (ACTIVITY) joinWithDiscord();
+                else showJoin(error.message);
             } else {
                 showEnded('Não deu para reconectar', error.message, true);
             }
         }
+    }
+
+    // ---------- entrar pela Atividade do Discord ----------
+    let discordSdk = null;
+
+    async function joinWithDiscord() {
+        show('join');
+        setStatus('connecting', 'Entrando…');
+        $('join-error').hidden = true;
+        $('activity-retry').hidden = true;
+        $('activity-text').textContent = 'Entrando com a sua conta do Discord…';
+        try {
+            const sdk = window.DiscordEmbeddedSdk;
+            const clientId = app.dataset.clientId;
+            if (!sdk || !clientId) throw new Error('A Atividade ainda não foi configurada neste bot.');
+            if (!discordSdk) {
+                discordSdk = new sdk.DiscordSDK(clientId);
+                await discordSdk.ready();
+            }
+            const { code } = await discordSdk.commands.authorize({
+                client_id: clientId, response_type: 'code', state: '', prompt: 'none', scope: ['identify'],
+            });
+            // O bot troca o código por quem a pessoa é e devolve o mesmo acesso que o código da DM daria
+            const ticket = await api('/activity/login', {
+                method: 'POST', auth: false,
+                body: { code, guildId: discordSdk.guildId, channelId: discordSdk.channelId },
+            });
+            await connect(ticket);
+        } catch (error) {
+            show('join');
+            setStatus('error', 'Desconectado');
+            $('activity-text').textContent = 'Não deu para entrar.';
+            $('join-error').textContent = (error && error.message) || 'Algo deu errado.';
+            $('join-error').hidden = false;
+            $('activity-retry').hidden = false;
+        }
+    }
+
+    /**
+     * Dentro do Discord só passa o que tem mapeamento no proxy (Developer Portal → URL Mappings: /livekit →
+     * <projeto>.livekit.cloud). Por isso a Atividade conecta em wss://<app>.discordsays.com/livekit em vez do
+     * endereço do LiveKit. Com o endereço do proxy o cliente também não tenta os servidores regionais do LiveKit
+     * Cloud, que o Discord bloquearia.
+     */
+    function livekitUrl(serverUrl) {
+        if (!ACTIVITY) return serverUrl;
+        const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${scheme}//${location.host}/livekit`;
     }
 
     function forgetSession() {
@@ -249,7 +305,7 @@
         const room = new Room({ adaptiveStream: true, dynacast: true });
         wire(room);
         state.room = room;
-        await room.connect(ticket.serverUrl, ticket.token, { autoSubscribe: false });
+        await room.connect(livekitUrl(ticket.serverUrl), ticket.token, { autoSubscribe: false });
 
         show('room');
         setStatus('connected', 'Conectado');
@@ -310,14 +366,15 @@
         if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
             forgetSession();
             showEnded('Você saiu do canal de voz',
-                'A stream fecha quando você sai do canal de voz dela. Entre de novo no canal e use /stream join para receber outro código.',
-                false);
+                ACTIVITY ? 'A stream fecha quando você sai do canal de voz dela. Entre de novo no canal e abra a Atividade.'
+                    : 'A stream fecha quando você sai do canal de voz dela. Entre de novo no canal e use /stream join para receber outro código.',
+                ACTIVITY);
         } else if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
             showEnded('Aberta em outra aba', 'Você entrou nesta stream em outra aba ou aparelho. Esta aqui foi fechada.', true);
         } else if (reason === DisconnectReason.CLIENT_INITIATED) {
             showEnded('Você saiu da stream', '', true);
         } else {
-            showEnded('A conexão caiu', 'Tente reconectar. Se não der, peça outro código com /stream join.', true);
+            showEnded('A conexão caiu', 'Tente reconectar. Se não der, ' + AGAIN + '.', true);
         }
     }
 
@@ -674,7 +731,12 @@
                 toast('Transmitindo sem áudio. No Chrome/Edge, marque "Compartilhar áudio" ao escolher uma aba ou a tela inteira (janela sozinha não tem áudio).');
             }
         } catch (error) {
-            if (error && error.name !== 'NotAllowedError') toast('Não deu para compartilhar a tela: ' + error.message);
+            if (ACTIVITY && (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || (error && error.name === 'NotAllowedError'))) {
+                // O Discord pode não liberar a captura de tela dentro da Atividade
+                toast('Não deu para compartilhar a tela pela Atividade. Transmita pelo link do navegador (o /stream create manda por DM).');
+            } else if (error && error.name !== 'NotAllowedError') {
+                toast('Não deu para compartilhar a tela: ' + error.message);
+            }
         } finally {
             button.disabled = false;
             updateShareButton();
@@ -845,7 +907,9 @@
     });
     $('audio-unlock').addEventListener('click', () => state.room && state.room.startAudio().then(updateAudioButton));
     $('chat-form').addEventListener('submit', sendChat);
-    $('rejoin').addEventListener('click', () => (state.session ? resume() : showJoin()));
+    $('rejoin').addEventListener('click', () => (state.session ? resume() : (ACTIVITY ? joinWithDiscord() : showJoin())));
+    const activityRetry = $('activity-retry');
+    if (activityRetry) activityRetry.addEventListener('click', joinWithDiscord);
     // Holofote: o brilho dos painéis de vidro segue o mouse
     document.addEventListener('pointermove', (event) => {
         const glass = event.target.closest && event.target.closest('.glass');
@@ -856,7 +920,12 @@
     }, { passive: true });
     window.addEventListener('beforeunload', () => { if (state.room) state.room.disconnect(); });
 
-    state.session = store.get(SESSION_KEY);
-    if (state.session) resume();
-    else showJoin();
+    if (ACTIVITY) {
+        // Na Atividade a entrada é sempre pelo login do Discord (rápido e sem digitar nada)
+        joinWithDiscord();
+    } else {
+        state.session = store.get(SESSION_KEY);
+        if (state.session) resume();
+        else showJoin();
+    }
 })();
