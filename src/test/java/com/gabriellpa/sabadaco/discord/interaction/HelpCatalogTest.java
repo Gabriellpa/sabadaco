@@ -8,6 +8,7 @@ import com.gabriellpa.sabadaco.music.MusicService;
 import com.gabriellpa.sabadaco.music.SearchService;
 import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import com.gabriellpa.sabadaco.discord.StreamAnnouncements;
+import com.gabriellpa.sabadaco.discord.StreamerBadge;
 import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,8 @@ class HelpCatalogTest {
     StreamInvites streamInvites;
     @MockitoBean
     StreamAnnouncements streamAnnouncements;
+    @MockitoBean
+    StreamerBadge streamerBadge;
 
     @Autowired
     HelpCatalog catalog;
