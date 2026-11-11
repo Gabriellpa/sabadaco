@@ -13,6 +13,7 @@ import com.gabriellpa.sabadaco.discord.StreamInvites;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.utils.data.DataObject;
@@ -32,6 +33,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /** Sobe só os beans de comando reais (serviços mockados) e valida o que seria registrado no Discord. */
 @SpringJUnitConfig
@@ -128,5 +131,23 @@ class CommandRegistrarTest {
 
     private Map<String, SlashCommandData> byName() {
         return registrar.commandData().stream().collect(Collectors.toMap(SlashCommandData::getName, Function.identity()));
+    }
+
+    @Test
+    void globalSyncKeepsTheActivityEntryPointAndRemovesOnlyOldCommands() {
+        var entryPoint = command("launch", Command.Type.UNKNOWN);
+        var play = command("play", Command.Type.SLASH);
+        var removed = command("antigo", Command.Type.SLASH);
+        var userMenu = command("play", Command.Type.USER);
+
+        assertThat(CommandRegistrar.stale(List.of(entryPoint, play, removed, userMenu), registrar.commandData()))
+                .containsExactlyInAnyOrder(removed, userMenu);
+    }
+
+    private static Command command(String name, Command.Type type) {
+        var command = mock(Command.class);
+        when(command.getName()).thenReturn(name);
+        when(command.getType()).thenReturn(type);
+        return command;
     }
 }
