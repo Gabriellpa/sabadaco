@@ -27,6 +27,21 @@
     const app = document.getElementById('app');
     const streamId = app.dataset.streamId;
     const ACTIVITY = app.dataset.mode === 'activity';
+    /**
+     * Na Atividade, o Discord não libera captura de tela no iframe. Quem instalou o "sabadaco-tela" (tools/discord-tela)
+     * recebe {@code display-capture} na permissions policy do iframe e o app atende o pedido: aí compartilha aqui
+     * mesmo. Sem ele, o botão Transmitir abre o navegador.
+     */
+    const SHARE_HERE = ACTIVITY && allowsDisplayCapture();
+
+    function allowsDisplayCapture() {
+        const policy = document.permissionsPolicy || document.featurePolicy;
+        try {
+            return !!(policy && policy.allowsFeature('display-capture'));
+        } catch (error) {
+            return false;
+        }
+    }
     /** Como pedir um novo acesso, no texto das telas de erro. */
     const AGAIN = ACTIVITY ? 'abra a Atividade de novo' : 'peça outro código com /stream join';
     const $ = (id) => document.getElementById(id);
@@ -321,6 +336,8 @@
         }
         // Na Atividade o botão abre o navegador (transmitir ou abrir uma stream), então aparece para todos
         $('share-group').hidden = !(state.canPublish || ACTIVITY);
+        // Com o sabadaco-tela, quem transmite pela Atividade escolhe qualidade e áudio como no navegador
+        if (SHARE_HERE) $('share-settings').hidden = !state.canPublish;
         updateActivityHeader();
         updateShareButton();
         updateAudioButton();
@@ -750,7 +767,8 @@
 
     // ---------- transmitir ----------
     async function toggleShare() {
-        if (ACTIVITY) {
+        if (ACTIVITY && (!SHARE_HERE || !state.canPublish)) {
+            // Sem o sabadaco-tela vai pelo navegador; com ele, primeiro abre a stream (título) e depois compartilha aqui
             broadcastFromActivity();
             return;
         }
@@ -766,7 +784,11 @@
                 toast('Transmitindo sem áudio. No Chrome/Edge, marque "Compartilhar áudio" ao escolher uma aba ou a tela inteira (janela sozinha não tem áudio).');
             }
         } catch (error) {
-            if (error && error.name !== 'NotAllowedError') {
+            if (ACTIVITY && error && error.name === 'NotSupportedError') {
+                // O sabadaco-tela liberou o iframe mas o app não atendeu (Discord atualizou?): segue pelo navegador
+                toast('O Discord não deixou compartilhar pela Atividade. Abrindo o navegador…');
+                shareInBrowser();
+            } else if (error && error.name !== 'NotAllowedError') {
                 toast('Não deu para compartilhar a tela: ' + error.message);
             }
         } finally {
@@ -803,18 +825,32 @@
         }
     }
 
+    /** Abre o navegador na stream da pessoa, pronto para compartilhar. */
+    async function shareInBrowser() {
+        const button = $('share-toggle');
+        button.disabled = true;
+        try {
+            if (await openInBrowser('/activity/browser', {})) toast('No navegador, clique em "Compartilhar tela".');
+        } catch (error) {
+            toast(error.message);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     async function broadcastFromActivity() {
         if (state.streams.some((s) => s.hostId === state.identity)) {
-            // Já tem stream: só abre o navegador nela, pronto para compartilhar
-            const button = $('share-toggle');
-            button.disabled = true;
-            try {
-                if (await openInBrowser('/activity/browser', {})) toast('No navegador, clique em "Compartilhar tela".');
-            } catch (error) {
-                toast(error.message);
-            } finally {
-                button.disabled = false;
+            if (SHARE_HERE) {
+                // Já tem stream mas o token ainda é de quem assiste: pega um que pode transmitir
+                try {
+                    await connect(await api('/resume', { method: 'POST' }));
+                    toast('Pronto: clique em "Compartilhar tela".');
+                } catch (error) {
+                    toast(error.message);
+                }
+                return;
             }
+            shareInBrowser();
             return;
         }
         $('broadcast-error').hidden = true;
@@ -830,6 +866,15 @@
         button.disabled = true;
         button.innerHTML = '<span class="spinner"></span>Abrindo…';
         try {
+            if (SHARE_HERE) {
+                // Abre a stream (card e 🎥 no Discord) e reconecta com um token que pode transmitir, aqui mesmo
+                await api('/activity/stream', { method: 'POST', body: { title } });
+                $('broadcast-dialog').hidden = true;
+                $('broadcast-title').value = '';
+                await connect(await api('/resume', { method: 'POST' }));
+                toast('Stream aberta. Clique em "Compartilhar tela".');
+                return;
+            }
             const opened = await openInBrowser('/activity/stream', { title });
             $('broadcast-dialog').hidden = true;
             $('broadcast-title').value = '';
@@ -842,16 +887,18 @@
             $('broadcast-error').hidden = false;
         } finally {
             button.disabled = false;
-            button.textContent = 'Abrir stream e navegador';
+            button.textContent = SHARE_HERE ? 'Abrir stream' : 'Abrir stream e navegador';
         }
     }
 
     function updateShareButton() {
         const button = $('share-toggle');
         const sharing = !!(state.room && state.room.localParticipant.isScreenShareEnabled);
-        if (ACTIVITY) {
+        if (ACTIVITY && (!SHARE_HERE || !state.canPublish)) {
             button.textContent = '📡 Transmitir';
-            button.title = 'Abre o seu navegador pronto para compartilhar a tela (o Discord não deixa pela Atividade)';
+            button.title = SHARE_HERE
+                ? 'Abre uma stream neste canal para você compartilhar a tela aqui'
+                : 'Abre o seu navegador pronto para compartilhar a tela (o Discord não deixa pela Atividade)';
             return;
         }
         button.textContent = sharing ? 'Parar de compartilhar' : 'Compartilhar tela';
@@ -963,7 +1010,8 @@
     /** Anima a troca do DOM com View Transitions quando o navegador suporta. */
     function transition(change) {
         if (document.startViewTransition && !reducedMotion() && document.visibilityState === 'visible') {
-            document.startViewTransition(change);
+            // Uma transição nova (ex.: reconectar logo depois de abrir a stream) pula a anterior: não é erro
+            document.startViewTransition(change).ready.catch(() => {});
         } else {
             change();
         }
@@ -1021,6 +1069,11 @@
     if (ACTIVITY) {
         $('open-browser').addEventListener('click', watchInBrowser);
         $('broadcast-form').addEventListener('submit', submitBroadcast);
+        if (SHARE_HERE) {
+            $('broadcast-hint').textContent = 'A stream abre neste canal e você compartilha a tela aqui mesmo. '
+                + 'Quem está no canal assiste pela Atividade ou pelo navegador.';
+            $('broadcast-submit').textContent = 'Abrir stream';
+        }
         $('broadcast-cancel').addEventListener('click', () => { $('broadcast-dialog').hidden = true; });
     }
     // Holofote: o brilho dos painéis de vidro segue o mouse
