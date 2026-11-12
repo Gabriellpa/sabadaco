@@ -48,6 +48,18 @@ public class StreamAnnouncements {
                 error -> log.debug("Não consegui guardar o card da stream {}", stream.id(), error)));
     }
 
+    /** Publica o card ao vivo direto no canal da stream (stream aberta pela Atividade, sem comando para responder). */
+    public void post(StreamSession stream, String avatarUrl) {
+        var channel = jda.getChannelById(GuildMessageChannel.class, stream.textChannelId());
+        if (channel == null || !channel.canTalk()) {
+            log.debug("Sem acesso ao canal {} para o card da stream {}", stream.textChannelId(), stream.id());
+            return;
+        }
+        channel.sendMessage(Messages.create(StreamCard.live(stream, avatarUrl))).queue(
+                message -> cards.put(stream.id(), new CardRef(message.getChannelIdLong(), message.getIdLong(), avatarUrl)),
+                error -> log.debug("Não consegui publicar o card da stream {}", stream.id(), error));
+    }
+
     /** Troca o card pelo de encerrada. Sem card guardado (bot reiniciou), avisa com uma mensagem simples. */
     public void ended(StreamSession stream, String reason) {
         var card = cards.remove(stream.id());

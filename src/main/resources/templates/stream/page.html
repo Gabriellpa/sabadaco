@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title th:text="${stream != null} ? |${stream.title()} · Sabadaço stream| : 'Stream · Sabadaço'">Stream · Sabadaço</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" th:href="@{/css/stream.css}">
     <script th:src="@{/webjars/livekit-client/dist/livekit-client.umd.js}" defer></script>
     <script th:if="${activity}" th:src="@{/js/vendor/discord-embedded-app-sdk.js}" defer></script>
@@ -22,8 +19,10 @@
         <div class="topbar-title" id="room-title"></div>
         <div class="topbar-actions">
             <button type="button" class="btn btn-ghost" id="audio-unlock" hidden>🔈 Ativar som</button>
+            <button type="button" class="btn btn-ghost" id="open-browser" th:if="${activity}" hidden
+                    title="Abre esta stream no seu navegador, já logado">↗ Abrir no navegador</button>
             <div class="share-group" id="share-group" hidden>
-                <div class="share-settings" id="share-settings" title="Valem na próxima vez que você compartilhar">
+                <div class="share-settings" id="share-settings" th:hidden="${activity}" title="Valem na próxima vez que você compartilhar">
                     <select id="share-profile" class="chip-select" aria-label="Qualidade da transmissão"></select>
                     <label class="switch" title="Áudio da aba ou do sistema (Chrome/Edge)">
                         <input type="checkbox" id="share-audio"><span class="switch-track"><span class="switch-thumb"></span></span><span>Áudio</span>
@@ -104,6 +103,22 @@
             <p class="muted" id="ended-text"></p>
             <button type="button" class="btn btn-accent btn-block" id="rejoin" hidden>Reconectar</button>
         </div>
+    </section>
+
+    <!-- 4) Atividade: o Discord não deixa capturar a tela no iframe, então a stream abre aqui e o navegador transmite -->
+    <section class="overlay" id="broadcast-dialog" th:if="${activity}" hidden>
+        <form class="glass join-card" id="broadcast-form" autocomplete="off">
+            <h1>Transmitir</h1>
+            <p class="muted">O Discord não deixa compartilhar a tela dentro da Atividade. A stream abre neste canal e o
+                seu navegador abre pronto para compartilhar. Quem está aqui assiste pela Atividade.</p>
+            <label class="code-field">
+                <span>Título</span>
+                <input id="broadcast-title" class="title-input" maxlength="100" placeholder="Valorant ranqueada" required>
+            </label>
+            <button type="submit" class="btn btn-accent btn-block" id="broadcast-submit">Abrir stream e navegador</button>
+            <button type="button" class="btn btn-ghost btn-block" id="broadcast-cancel">Cancelar</button>
+            <p class="error" id="broadcast-error" role="alert" hidden></p>
+        </form>
     </section>
 
     <div class="glass toast" id="toast" role="status" hidden></div>

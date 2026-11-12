@@ -17,6 +17,7 @@ import com.gabriellpa.sabadaco.playlist.PlaylistService;
 import com.gabriellpa.sabadaco.playlist.PlaylistTrack;
 import com.gabriellpa.sabadaco.stream.DiscordLogin;
 import com.gabriellpa.sabadaco.stream.StreamChatService;
+import com.gabriellpa.sabadaco.stream.StreamNotifier;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -78,6 +79,8 @@ class AdminPanelTest {
     StreamChatService streamChatService;
     @MockitoBean
     DiscordLogin discordLogin;
+    @MockitoBean
+    StreamNotifier streamNotifier;
     @MockitoBean
     GuildPlayerRegistry players;
     @MockitoBean

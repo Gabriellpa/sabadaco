@@ -71,6 +71,8 @@ class StreamPageControllerTest {
                 .andExpect(content().string(containsString("data-client-id=\"888603239304527884\"")))
                 .andExpect(content().string(containsString("discord-embedded-app-sdk.js")))
                 .andExpect(content().string(containsString("id=\"activity-retry\"")))
+                // A CSP do Discord bloqueia recursos de fora (Google Fonts): tudo vem do próprio app.
+                .andExpect(content().string(not(containsString("googleapis"))))
                 .andExpect(content().string(not(containsString("id=\"code\""))));
     }
 
@@ -90,6 +92,12 @@ class StreamPageControllerTest {
                 .andExpect(header().string("X-Frame-Options", "DENY"))
                 .andExpect(content().string(containsString("data-mode=\"link\"")))
                 .andExpect(content().string(not(containsString("discord-embedded-app-sdk.js"))));
+    }
+
+    @Test
+    void fontsAreServedByTheAppWithoutLogin() throws Exception {
+        mvc.perform(get("/stream/fonts/geist-latin-wght-normal.woff2")).andExpect(status().isOk());
+        mvc.perform(get("/stream/fonts/geist-mono-latin-wght-normal.woff2")).andExpect(status().isOk());
     }
 
     @Test

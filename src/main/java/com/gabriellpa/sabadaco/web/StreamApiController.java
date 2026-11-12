@@ -3,6 +3,7 @@ package com.gabriellpa.sabadaco.web;
 import com.gabriellpa.sabadaco.UserFacingException;
 import com.gabriellpa.sabadaco.stream.DiscordLogin;
 import com.gabriellpa.sabadaco.stream.StreamChatService;
+import com.gabriellpa.sabadaco.stream.StreamNotifier;
 import com.gabriellpa.sabadaco.stream.StreamService;
 import com.gabriellpa.sabadaco.stream.StreamService.JoinTicket;
 import com.gabriellpa.sabadaco.stream.StreamSession;
@@ -37,6 +38,7 @@ public class StreamApiController {
     private final StreamService streams;
     private final StreamChatService chat;
     private final DiscordLogin discord;
+    private final StreamNotifier notifier;
 
     public record JoinRequest(String code) {
     }
@@ -56,12 +58,22 @@ public class StreamApiController {
         }
     }
 
-    /** @param session sessão da página (chat, lista de streams, reconectar sem código) */
+    /** @param streamId a stream a abrir no navegador (texto, ver {@link StreamView}); vazio = a da pessoa ou a primeira */
+    public record BrowserRequest(String streamId) {
+    }
+
+    public record OpenStreamRequest(String title) {
+    }
+
+    /** Link do navegador com o código de uso único no fragmento ({@code #code=...}). */
+    public record BrowserLink(String url) {
+    }
+
     public record JoinResponse(String serverUrl, String token, String identity, boolean canPublish,
                                StreamView stream, List<StreamView> channelStreams, String session) {
         static JoinResponse of(JoinTicket ticket) {
             return new JoinResponse(ticket.serverUrl(), ticket.token(), ticket.identity(), ticket.canPublish(),
-                    StreamView.of(ticket.stream()), views(ticket.channelStreams()), ticket.session());
+                    ticket.stream() == null ? null : StreamView.of(ticket.stream()), views(ticket.channelStreams()), ticket.session());
         }
     }
 
@@ -82,6 +94,29 @@ public class StreamApiController {
         var user = discord.exchange(request.code());
         var ticket = streams.joinFromDiscord(guildId, channelId, user.id(), user.displayName());
         return JoinResponse.of(ticket);
+    }
+
+    /**
+     * Da Atividade para o navegador: link já com código, para assistir pelo navegador ou transmitir (o Discord não
+     * deixa compartilhar a tela dentro da Atividade).
+     */
+    @PostMapping("/activity/browser")
+    public BrowserLink activityBrowser(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+                                       @RequestBody(required = false) BrowserRequest request) {
+        var streamId = request == null || request.streamId() == null || request.streamId().isBlank()
+                ? null : streamId(request.streamId());
+        return new BrowserLink(streams.browserInvite(session(authorization), streamId).linkWithCode());
+    }
+
+    /** Abre uma stream pela Atividade (ou devolve a que a pessoa já tem) e o link do navegador para transmitir. */
+    @PostMapping("/activity/stream")
+    public BrowserLink activityStream(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+                                      @RequestBody OpenStreamRequest request) {
+        var opened = streams.openFromActivity(session(authorization), request.title());
+        if (opened.created()) {
+            notifier.started(opened.invite().stream());
+        }
+        return new BrowserLink(opened.invite().linkWithCode());
     }
 
     /** Novo token do LiveKit pela sessão (F5, conexão caiu, passou a transmitir). */
@@ -111,6 +146,14 @@ public class StreamApiController {
             return Long.parseLong(value == null ? "" : value.strip());
         } catch (NumberFormatException invalid) {
             throw new UserFacingException("Abra a Atividade dentro de um canal de voz.");
+        }
+    }
+
+    private static long streamId(String value) {
+        try {
+            return Long.parseLong(value.strip());
+        } catch (NumberFormatException invalid) {
+            throw new UserFacingException("Esta stream já terminou.");
         }
     }
 
