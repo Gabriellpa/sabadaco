@@ -15,7 +15,8 @@ Sem ele, o botão **📡 Transmitir** da Atividade abre o navegador para transmi
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1
    ```
-   O script fecha o Discord, instala e abre o Discord de novo.
+   O script mostra a pasta e as versões do Discord que encontrou e pergunta antes de mexer (`S` para seguir).
+   Depois fecha o Discord, instala e abre o Discord de novo. Com `-Sim`, não pergunta.
 3. Abra a Atividade do Sabadaço, clique em **📡 Transmitir**, dê um título e depois clique em
    **Compartilhar tela**. Uma janela pergunta qual tela ou janela transmitir.
 
@@ -27,7 +28,8 @@ Quando o Discord se atualizar, a instalação some. É só rodar o arquivo de no
 powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1 -Remover
 ```
 
-Para o Discord PTB ou Canary, passe a pasta: `-Pasta "$env:LOCALAPPDATA\DiscordPTB"`.
+O script acha o Discord sozinho: primeiro pelo Discord aberto, depois nas pastas padrão (Discord, PTB, Canary). Se
+mesmo assim não achar, passe a pasta que tem as `app-*`: `-Pasta "D:\Apps\Discord"`.
 
 ## O que ele faz
 

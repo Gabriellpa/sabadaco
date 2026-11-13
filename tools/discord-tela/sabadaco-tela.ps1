@@ -16,10 +16,13 @@
     powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1
     powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1 -Remover
 #>
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [switch]$Remover,
-    # Pasta do Discord (padrão: o Discord normal; para o PTB use "$env:LOCALAPPDATA\DiscordPTB")
-    [string]$Pasta = (Join-Path $env:LOCALAPPDATA 'Discord')
+    # Não pergunta antes de instalar/remover
+    [switch]$Sim,
+    # Pasta do Discord (a que tem as app-*). Vazio = acha sozinho: o Discord aberto, ou a pasta padrão.
+    [string]$Pasta = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -171,53 +174,100 @@ $Codigo = @'
 
 # ---------------------------------------------------------------------------------------------------------------
 
-function Get-PastaCore {
+function Find-PastaDiscord {
+    # 1) O Discord aberto: ...\<Pasta>\app-1.0.XXXX\Discord.exe (qualquer nome de pasta)
+    foreach ($nome in 'Discord', 'DiscordPTB', 'DiscordCanary') {
+        $exe = Get-Process -Name $nome -ErrorAction SilentlyContinue | Where-Object { $_.Path } |
+            Select-Object -First 1 -ExpandProperty Path
+        if ($exe) {
+            $app = Split-Path $exe -Parent
+            if ((Split-Path $app -Leaf) -like 'app-*') { return (Split-Path $app -Parent) }
+        }
+    }
+    # 2) As pastas padrão do instalador
+    foreach ($nome in 'Discord', 'DiscordPTB', 'DiscordCanary') {
+        $p = Join-Path $env:LOCALAPPDATA $nome
+        if (Get-ChildItem $p -Directory -Filter 'app-*' -ErrorAction SilentlyContinue) { return $p }
+    }
+    throw "Não achei o Discord. Abra o Discord e rode de novo, ou passe a pasta: -Pasta 'C:\...\Discord' (a que tem as pastas app-*)."
+}
+
+# Todas as versões instaladas (app-*): o Discord pode abrir uma ou outra, então instala em todas
+function Get-PastasCore {
     if (-not (Test-Path $Pasta)) { throw "Discord não encontrado em $Pasta" }
-    $app = Get-ChildItem $Pasta -Directory -Filter 'app-*' |
-        Sort-Object { [version]($_.Name -replace '^app-', '') } -Descending | Select-Object -First 1
-    if (-not $app) { throw "Nenhuma versão do Discord (app-*) em $Pasta" }
-    $core = Get-ChildItem (Join-Path $app.FullName 'modules') -Directory -Filter 'discord_desktop_core-*' |
-        Sort-Object { [int]($_.Name -replace '^discord_desktop_core-', '') } -Descending | Select-Object -First 1
-    if (-not $core) { throw "Módulo discord_desktop_core não encontrado em $($app.FullName)" }
-    $dir = Join-Path $core.FullName 'discord_desktop_core'
-    if (-not (Test-Path (Join-Path $dir 'index.js'))) { throw "index.js não encontrado em $dir" }
-    return $dir
+    $dirs = foreach ($app in Get-ChildItem $Pasta -Directory -Filter 'app-*') {
+        $core = Get-ChildItem (Join-Path $app.FullName 'modules') -Directory -Filter 'discord_desktop_core-*' -ErrorAction SilentlyContinue |
+            Sort-Object { [int]($_.Name -replace '^discord_desktop_core-', '') } -Descending | Select-Object -First 1
+        if ($core) {
+            $dir = Join-Path $core.FullName 'discord_desktop_core'
+            if (Test-Path (Join-Path $dir 'index.js')) { $dir }
+        }
+    }
+    if (-not $dirs) { throw "Nenhuma versão do Discord (app-*\modules\discord_desktop_core-*) em $Pasta" }
+    return @($dirs)
+}
+
+# Nome do executável (Discord, DiscordPTB, DiscordCanary), pela versão mais nova
+function Get-NomeExe {
+    $exe = Get-ChildItem $Pasta -Directory -Filter 'app-*' | Sort-Object Name -Descending |
+        ForEach-Object { Get-ChildItem $_.FullName -File -Filter 'Discord*.exe' } | Select-Object -First 1
+    if ($exe) { return $exe.BaseName } else { return 'Discord' }
 }
 
 function Stop-Discord {
-    $nome = Split-Path $Pasta -Leaf
-    $proc = Get-Process -Name $nome -ErrorAction SilentlyContinue
+    $proc = Get-Process -Name $NomeExe -ErrorAction SilentlyContinue
     if ($proc) {
-        Write-Host "Fechando o $nome..."
+        Write-Host "Fechando o $NomeExe..."
         $proc | Stop-Process -Force
         Start-Sleep -Seconds 2
     }
 }
 
 function Start-Discord {
-    $nome = Split-Path $Pasta -Leaf
     $update = Join-Path $Pasta 'Update.exe'
-    if (Test-Path $update) { Start-Process $update -ArgumentList '--processStart', "$nome.exe" }
+    if (Test-Path $update) { Start-Process $update -ArgumentList '--processStart', "$NomeExe.exe" }
+    else { Write-Host 'Abra o Discord de novo.' }
 }
 
 $utf8 = New-Object System.Text.UTF8Encoding $false
-$dir = Get-PastaCore
-$index = Join-Path $dir 'index.js'
-$js = Join-Path $dir $Arquivo
-$conteudo = [System.IO.File]::ReadAllText($index)
+if (-not $Pasta) { $Pasta = Find-PastaDiscord }
+$NomeExe = Get-NomeExe
+Write-Host "Discord em $Pasta ($NomeExe)"
+$dirs = Get-PastasCore
+
+Write-Host ''
+Write-Host "Discord encontrado em: $Pasta"
+Write-Host 'Versões:'
+$dirs | ForEach-Object { Write-Host ('  ' + ($_ -replace '^.*\\(app-[^\\]+)\\.*$', '$1')) }
+Write-Host 'O Discord será fechado e aberto de novo.'
+if (-not $Sim) {
+    $acao = if ($Remover) { 'Remover o sabadaco-tela' } else { 'Instalar o sabadaco-tela (vai contra os termos do Discord; o risco é seu)' }
+    $resposta = Read-Host "$acao? (S/N)"
+    if ($resposta -notmatch '^[sSyY]') { Write-Host 'Nada foi alterado.'; exit 1 }
+}
 
 Stop-Discord
+foreach ($dir in $dirs) {
+    $index = Join-Path $dir 'index.js'
+    $js = Join-Path $dir $Arquivo
+    $conteudo = [System.IO.File]::ReadAllText($index)
+    if ($Remover) {
+        $linhas = $conteudo -split "`r?`n" | Where-Object { $_ -notmatch [regex]::Escape($Marcador) }
+        [System.IO.File]::WriteAllText($index, ($linhas -join "`n"), $utf8)
+        if (Test-Path $js) { Remove-Item $js }
+        Write-Host "removido de $dir"
+    } else {
+        [System.IO.File]::WriteAllText($js, $Codigo, $utf8)
+        if (-not $conteudo.Contains($Marcador)) {
+            [System.IO.File]::WriteAllText($index, "require('./$Arquivo'); $Marcador`n" + $conteudo, $utf8)
+        }
+        Write-Host "instalado em $dir"
+    }
+}
 if ($Remover) {
-    $linhas = $conteudo -split "`r?`n" | Where-Object { $_ -notmatch [regex]::Escape($Marcador) }
-    [System.IO.File]::WriteAllText($index, ($linhas -join "`n"), $utf8)
-    if (Test-Path $js) { Remove-Item $js }
     Write-Host 'sabadaco-tela removido.' -ForegroundColor Green
 } else {
-    [System.IO.File]::WriteAllText($js, $Codigo, $utf8)
-    if (-not $conteudo.Contains($Marcador)) {
-        [System.IO.File]::WriteAllText($index, "require('./$Arquivo'); $Marcador`n" + $conteudo, $utf8)
-    }
-    Write-Host "sabadaco-tela instalado em $dir" -ForegroundColor Green
+    Write-Host 'sabadaco-tela instalado.' -ForegroundColor Green
     Write-Host 'Quando o Discord atualizar, rode este arquivo de novo.'
 }
 Start-Discord
