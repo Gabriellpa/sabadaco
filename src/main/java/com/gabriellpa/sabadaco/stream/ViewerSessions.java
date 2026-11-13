@@ -27,16 +27,25 @@ public class ViewerSessions {
         this.clock = clock;
     }
 
-    /** @param streamId a stream pela qual a pessoa entrou (o chat dela vai para o canal de texto dessa stream) */
+    /**
+     * @param streamId a stream pela qual a pessoa entrou (o chat dela vai para o canal de texto dessa stream)
+     * @param activity entrou pela Atividade do Discord (e não pelo link do navegador)
+     */
     public record ViewerSession(String token, long streamId, long guildId, long voiceChannelId, long userId,
-                                String displayName, Instant createdAt) {
+                                String displayName, Instant createdAt, boolean activity) {
     }
 
     public ViewerSession open(long streamId, long guildId, long voiceChannelId, long userId, String displayName) {
+        return open(streamId, guildId, voiceChannelId, userId, displayName, false);
+    }
+
+    public ViewerSession open(long streamId, long guildId, long voiceChannelId, long userId, String displayName,
+                              boolean activity) {
         var bytes = new byte[32];
         random.nextBytes(bytes);
         var token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        var session = new ViewerSession(token, streamId, guildId, voiceChannelId, userId, displayName, clock.instant());
+        var session = new ViewerSession(token, streamId, guildId, voiceChannelId, userId, displayName, clock.instant(),
+                activity);
         sessions.put(token, session);
         return session;
     }

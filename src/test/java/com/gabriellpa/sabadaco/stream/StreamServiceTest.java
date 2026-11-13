@@ -125,7 +125,22 @@ class StreamServiceTest {
         assertThat(host.canPublish()).isTrue();
 
         // A sessão serve para o F5/reconectar como a do código
-        assertThat(service.resume(viewer.session()).identity()).isEqualTo(String.valueOf(VIEWER));
+        assertThat(service.resume(viewer.session()).identity()).isEqualTo(VIEWER + "#atividade");
+    }
+
+    @Test
+    void activityAndBrowserOfTheSamePersonHaveDifferentIdentitiesSoNeitherKicksTheOther() {
+        presence.put(GUILD, HOST, VOICE);
+        var stream = service.create(GUILD, TEXT, HOST, "gabriel", "Valorant").stream();
+
+        var activity = service.joinFromDiscord(GUILD, VOICE, HOST, "gabriel");
+        var browser = service.redeem(stream.id(), service.browserInvite(activity.session(), null).code().code());
+
+        assertThat(activity.identity()).isEqualTo(HOST + "#atividade");
+        assertThat(browser.identity()).isEqualTo(String.valueOf(HOST));
+        assertThat(service.resume(activity.session()).identity()).isEqualTo(HOST + "#atividade");
+        assertThat(service.resume(browser.session()).identity()).isEqualTo(String.valueOf(HOST));
+        assertThat(activity.token()).isEqualTo("token:g10-c20:" + HOST + "#atividade:gabriel:true:" + stream.id());
     }
 
     @Test
@@ -348,7 +363,7 @@ class StreamServiceTest {
         service.end(stream.id(), ADMIN);
 
         assertThat(service.get(stream.id())).isEmpty();
-        assertThat(rooms.calls).containsExactly("revokePublish g10-c20 1");
+        assertThat(rooms.calls).containsExactly("revokePublish g10-c20 1", "revokePublish g10-c20 1#atividade");
     }
 
     @Test
@@ -373,7 +388,8 @@ class StreamServiceTest {
 
         assertThat(service.leftVoiceChannel(GUILD, HOST, VOICE)).containsExactly(stream);
         assertThat(service.streamsIn(GUILD, VOICE)).isEmpty();
-        assertThat(rooms.calls).containsExactly("remove g10-c20 2", "remove g10-c20 1");
+        assertThat(rooms.calls).containsExactly("remove g10-c20 2", "remove g10-c20 2#atividade",
+                "remove g10-c20 1", "remove g10-c20 1#atividade");
     }
 
     @Test
