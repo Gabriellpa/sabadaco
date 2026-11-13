@@ -32,6 +32,8 @@ public class StreamService {
     static final int MAX_TITLE_LENGTH = 100;
     /** Sessão da Atividade aberta num canal sem stream (não há stream 0: os ids são snowflakes). */
     static final long NO_STREAM = 0;
+    /** Sufixo da identidade de quem está na Atividade (ver {@link #identityOf}). */
+    static final String ACTIVITY_IDENTITY = "#atividade";
 
     private final LongSupplier ids;
     private final JoinCodeIssuer codes;
@@ -167,7 +169,8 @@ public class StreamService {
             throw new UserFacingException("Entre no canal de voz da stream e peça um novo código.");
         }
         var session = sessions.open(stream.id(), stream.guildId(), stream.voiceChannelId(), grant.userId(), grant.displayName());
-        return ticket(stream, grant.userId(), grant.displayName(), session.token());
+        return ticket(stream.guildId(), stream.voiceChannelId(), stream, grant.userId(), grant.displayName(), session.token(),
+                false);
     }
 
     /**
@@ -186,8 +189,9 @@ public class StreamService {
         var stream = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst()
                 .or(() -> channelStreams.stream().findFirst())
                 .orElse(null);
-        var session = sessions.open(stream == null ? NO_STREAM : stream.id(), guildId, voiceChannelId, userId, displayName);
-        return ticket(guildId, voiceChannelId, stream, userId, displayName, session.token());
+        var session = sessions.open(stream == null ? NO_STREAM : stream.id(), guildId, voiceChannelId, userId, displayName,
+                true);
+        return ticket(guildId, voiceChannelId, stream, userId, displayName, session.token(), true);
     }
 
     /**
@@ -244,7 +248,7 @@ public class StreamService {
         }
         // Sessão da Atividade num canal sem stream: volta para a sala vazia
         return ticket(session.guildId(), session.voiceChannelId(), stream, session.userId(), session.displayName(),
-                session.token());
+                session.token(), session.activity());
     }
 
     /** Streams ao vivo no canal de voz da sessão (a página usa para dar nome às telas e montar a lista). */
@@ -264,7 +268,7 @@ public class StreamService {
             throw new UserFacingException("Só quem abriu a stream pode encerrá-la.");
         }
         live.remove(streamId);
-        rooms.revokePublish(stream.room(), String.valueOf(stream.hostUserId()));
+        identitiesOf(stream.hostUserId()).forEach(identity -> rooms.revokePublish(stream.room(), identity));
         return stream;
     }
 
@@ -288,7 +292,7 @@ public class StreamService {
                 .toList();
         ended.forEach(stream -> live.remove(stream.id()));
         if (media.isConfigured()) {
-            rooms.remove(StreamSession.roomOf(guildId, leftVoiceChannelId), String.valueOf(userId));
+            identitiesOf(userId).forEach(identity -> rooms.remove(StreamSession.roomOf(guildId, leftVoiceChannelId), identity));
         }
         return ended;
     }
@@ -332,16 +336,25 @@ public class StreamService {
                 .findFirst();
     }
 
-    /** O token diz se a pessoa pode transmitir e, no metadata, qual stream é a dela (a página usa para dar nome à tela). */
-    private JoinTicket ticket(StreamSession stream, long userId, String displayName, String sessionToken) {
-        return ticket(stream.guildId(), stream.voiceChannelId(), stream, userId, displayName, sessionToken);
+    /**
+     * Identidade na sala do LiveKit. A Atividade e o navegador da mesma pessoa ficam na sala ao mesmo tempo (ex.:
+     * assiste pela Atividade e transmite pelo navegador), e o LiveKit derruba quem entra com uma identidade repetida;
+     * então a Atividade ganha um sufixo. A página trata as duas como a mesma pessoa (o id antes do {@code #}).
+     */
+    static String identityOf(long userId, boolean activity) {
+        return activity ? userId + ACTIVITY_IDENTITY : String.valueOf(userId);
     }
 
+    private static List<String> identitiesOf(long userId) {
+        return List.of(identityOf(userId, false), identityOf(userId, true));
+    }
+
+    /** O token diz se a pessoa pode transmitir e, no metadata, qual stream é a dela (a página usa para dar nome à tela). */
     private JoinTicket ticket(long guildId, long voiceChannelId, StreamSession stream, long userId, String displayName,
-                              String sessionToken) {
+                              String sessionToken, boolean activity) {
         var channelStreams = streamsIn(guildId, voiceChannelId);
         var hosted = channelStreams.stream().filter(s -> s.hostUserId() == userId).findFirst();
-        var identity = String.valueOf(userId);
+        var identity = identityOf(userId, activity);
         var room = StreamSession.roomOf(guildId, voiceChannelId);
         var token = media.token(room, identity, displayName, hosted.isPresent(),
                 hosted.map(s -> String.valueOf(s.id())).orElse(""));

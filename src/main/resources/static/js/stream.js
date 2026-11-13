@@ -116,6 +116,7 @@
         room: null,
         session: null,
         identity: null,
+        userId: null,
         canPublish: false,
         streams: [],
         watching: new Set(),
@@ -302,6 +303,7 @@
     async function connect(ticket) {
         state.session = ticket.session;
         state.identity = ticket.identity;
+        state.userId = userOf(ticket.identity);
         state.canPublish = ticket.canPublish;
         store.set(SESSION_KEY, ticket.session);
         setStreams(ticket.channelStreams);
@@ -412,7 +414,7 @@
         const live = new Set(state.streams.map((s) => s.id));
         [...state.watching].forEach((id) => { if (!live.has(id)) state.watching.delete(id); });
         if (state.autoWatch) {
-            const first = state.streams.find((s) => s.hostId !== state.identity);
+            const first = state.streams.find((s) => s.hostId !== state.userId);
             if (first) {
                 state.watching.add(first.id);
                 state.autoWatch = false;
@@ -435,17 +437,27 @@
 
     function streamOf(participant) {
         return state.streams.find((s) => s.id === participant.metadata)
-            || state.streams.find((s) => s.hostId === participant.identity);
+            || state.streams.find((s) => s.hostId === userOf(participant.identity));
     }
 
+    /**
+     * Quem transmite a stream. A mesma pessoa pode estar na sala duas vezes (Atividade e navegador, ver
+     * {@link userOf}); vale a conexão que está mandando a tela.
+     */
     function participantOf(stream) {
         if (!state.room) return null;
-        return state.room.remoteParticipants.get(stream.hostId) || null;
+        const mine = [...state.room.remoteParticipants.values()].filter((p) => userOf(p.identity) === stream.hostId);
+        return mine.find((p) => p.getTrackPublication(SCREEN)) || mine[0] || null;
+    }
+
+    /** O id do Discord por trás da identidade na sala: a Atividade entra como "id#atividade" e o navegador como "id". */
+    function userOf(identity) {
+        return String(identity || '').split('#')[0];
     }
 
     function isSharing(stream) {
-        if (stream.hostId === state.identity) {
-            return !!(state.room && state.room.localParticipant.isScreenShareEnabled);
+        if (stream.hostId === state.userId && state.room && state.room.localParticipant.isScreenShareEnabled) {
+            return true;
         }
         const participant = participantOf(stream);
         return !!(participant && participant.getTrackPublication(SCREEN));
@@ -481,7 +493,7 @@
             list.append(empty);
         }
         state.streams.forEach((stream, index) => {
-            const own = stream.hostId === state.identity;
+            const own = stream.hostId === state.userId;
             const watching = own || state.watching.has(stream.id);
             const sharing = isSharing(stream);
             const item = el('li', 'stream-item' + (watching && !own ? ' watching' : ''));
@@ -515,14 +527,16 @@
         const everyone = [{ participant: local, me: true }]
             .concat([...state.room.remoteParticipants.values()].map((participant) => ({ participant, me: false })));
         const sharingOf = (p, me) => (me ? local.isScreenShareEnabled : !!p.getTrackPublication(SCREEN));
-        everyone.sort((a, b) => (b.me - a.me) || (sharingOf(b.participant, b.me) - sharingOf(a.participant, a.me))
+        // Você e a sua outra conexão (Atividade ou navegador) no topo
+        const rank = ({ participant, me }) => (me ? 2 : userOf(participant.identity) === state.userId ? 1 : 0);
+        everyone.sort((a, b) => (rank(b) - rank(a)) || (sharingOf(b.participant, b.me) - sharingOf(a.participant, a.me))
             || nameOf(a.participant).localeCompare(nameOf(b.participant), 'pt-BR'));
         list.replaceChildren(...everyone.map(({ participant, me }) => {
             const name = nameOf(participant);
             const item = el('li', 'person' + (sharingOf(participant, me) ? ' live' : ''));
             const avatar = el('span', 'avatar avatar-sm', initial(name));
             avatar.style.setProperty('--hue', String(hueOf(name)));
-            item.append(avatar, el('span', 'person-name', me ? name + ' (você)' : name));
+            item.append(avatar, el('span', 'person-name', name + whereOf(participant, me)));
             if (sharingOf(participant, me)) item.append(el('span', 'person-live', 'ao vivo'));
             const quality = me ? null : state.quality.get(participant.identity);
             if (quality && quality !== ConnectionQuality.Unknown) {
@@ -535,12 +549,23 @@
         $('people-count').textContent = String(everyone.length);
     }
 
+    /** Rótulo de quem está na sala duas vezes (Atividade e navegador), para não parecerem duas pessoas. */
+    function whereOf(participant, me) {
+        const user = userOf(participant.identity);
+        const twice = [state.room.localParticipant, ...state.room.remoteParticipants.values()]
+            .filter((p) => userOf(p.identity) === user).length > 1;
+        const where = twice ? (participant.identity.includes('#') ? 'na Atividade' : 'no navegador') : '';
+        if (me) return where ? ' (você, ' + where + ')' : ' (você)';
+        if (user === state.userId) return ' (você, ' + where + ')';
+        return where ? ' (' + where + ')' : '';
+    }
+
     function nameOf(participant) {
         return participant.name || participant.identity || 'Alguém';
     }
 
     function updateEmptyText() {
-        const anyWatching = state.streams.some((s) => s.hostId !== state.identity && state.watching.has(s.id));
+        const anyWatching = state.streams.some((s) => s.hostId !== state.userId && state.watching.has(s.id));
         $('stage-empty-text').textContent = anyWatching
             ? 'Esperando quem transmite compartilhar a tela…'
             : state.streams.length === 0 && ACTIVITY
@@ -553,8 +578,8 @@
         try {
             setStreams(await api('/streams'));
             syncSubscriptions();
-            const hostsNow = state.streams.some((s) => s.hostId === state.identity);
-            if (hostsNow && !state.canPublish) {
+            const hostsNow = state.streams.some((s) => s.hostId === state.userId);
+            if (hostsNow && !state.canPublish && (!ACTIVITY || SHARE_HERE)) {
                 // Abriu uma stream depois de entrar: pega um token que pode transmitir
                 toast('Você abriu uma stream: liberando o compartilhamento de tela…');
                 await connect(await api('/resume', { method: 'POST' }));
@@ -610,7 +635,7 @@
     }
 
     function addLocalTile(track) {
-        const tile = ensureTile(state.identity, state.streams.find((s) => s.hostId === state.identity), true);
+        const tile = ensureTile(state.identity, state.streams.find((s) => s.hostId === state.userId), true);
         tile.videoTrack = track;
         track.attach(tile.video);
     }
@@ -839,7 +864,7 @@
     }
 
     async function broadcastFromActivity() {
-        if (state.streams.some((s) => s.hostId === state.identity)) {
+        if (state.streams.some((s) => s.hostId === state.userId)) {
             if (SHARE_HERE) {
                 // Já tem stream mas o token ainda é de quem assiste: pega um que pode transmitir
                 try {

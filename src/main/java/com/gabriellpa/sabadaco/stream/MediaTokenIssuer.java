@@ -7,7 +7,7 @@ package com.gabriellpa.sabadaco.stream;
 public interface MediaTokenIssuer {
 
     /**
-     * @param identity  identificador estável da pessoa na sala (o id do Discord)
+     * @param identity  identificador estável da pessoa na sala (o id do Discord; na Atividade, com o sufixo {@code #atividade})
      * @param canPublish se pode transmitir a tela (só quem abriu uma stream no canal)
      * @param metadata   texto visível para todos na sala; usamos o id da stream de quem transmite
      */
