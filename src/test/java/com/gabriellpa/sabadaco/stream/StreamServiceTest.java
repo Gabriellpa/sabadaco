@@ -31,6 +31,7 @@ class StreamServiceTest {
     private final FakePresence presence = new FakePresence();
     private final FakeMedia media = new FakeMedia();
     private final FakeRooms rooms = new FakeRooms();
+    private static final String STREAMS_CHANGED = "broadcast g10-c20 {\"type\":\"streams\"}";
     private final ViewerSessions sessions = new ViewerSessions(clock);
     private final StreamService service = new StreamService(StreamService.snowflakes(0),
             new InMemoryJoinCodeIssuer(clock, Duration.ofMinutes(5)), media, rooms, sessions, presence, DiscordAdmins.of(ADMIN),
@@ -363,7 +364,9 @@ class StreamServiceTest {
         service.end(stream.id(), ADMIN);
 
         assertThat(service.get(stream.id())).isEmpty();
-        assertThat(rooms.calls).containsExactly("revokePublish g10-c20 1", "revokePublish g10-c20 1#atividade");
+        // Abrir e encerrar avisam a sala, e a página atualiza a lista na hora
+        assertThat(rooms.calls).containsExactly(STREAMS_CHANGED, "revokePublish g10-c20 1",
+                "revokePublish g10-c20 1#atividade", STREAMS_CHANGED);
     }
 
     @Test
@@ -388,8 +391,8 @@ class StreamServiceTest {
 
         assertThat(service.leftVoiceChannel(GUILD, HOST, VOICE)).containsExactly(stream);
         assertThat(service.streamsIn(GUILD, VOICE)).isEmpty();
-        assertThat(rooms.calls).containsExactly("remove g10-c20 2", "remove g10-c20 2#atividade",
-                "remove g10-c20 1", "remove g10-c20 1#atividade");
+        assertThat(rooms.calls).containsExactly(STREAMS_CHANGED, "remove g10-c20 2", "remove g10-c20 2#atividade",
+                "remove g10-c20 1", "remove g10-c20 1#atividade", STREAMS_CHANGED);
     }
 
     @Test

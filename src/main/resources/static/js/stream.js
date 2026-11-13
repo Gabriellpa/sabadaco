@@ -116,6 +116,8 @@
         room: null,
         session: null,
         identity: null,
+        expanded: null,
+        expandHintShown: false,
         userId: null,
         canPublish: false,
         streams: [],
@@ -181,8 +183,19 @@
         const el = $('toast');
         el.textContent = text;
         el.hidden = false;
+        // Com uma tela expandida (na camada de cima), o aviso também sobe para não ficar escondido atrás dela
+        const onTop = !!state.expanded && typeof el.showPopover === 'function';
+        if (onTop) {
+            el.setAttribute('popover', 'manual');
+            if (el.matches(':popover-open')) el.hidePopover();
+            el.showPopover();
+        }
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+        toastTimer = setTimeout(() => {
+            el.hidden = true;
+            if (el.matches(':popover-open')) el.hidePopover();
+            el.removeAttribute('popover');
+        }, 4000);
     }
 
     function showJoin(error) {
@@ -485,41 +498,80 @@
         syncSubscriptions();
     }
 
+    /**
+     * Lista de streams. Atualiza no lugar (cada item fica ligado ao id da stream): só os itens novos entram com
+     * animação, e os que não mudaram nem são tocados. Recriar tudo a cada atualização fazia a lateral piscar.
+     */
     function renderStreams() {
         const list = $('stream-list');
-        list.replaceChildren();
-        if (state.streams.length === 0) {
-            const empty = el('li', 'stream-empty', 'Nenhuma stream ao vivo neste canal agora.');
-            list.append(empty);
-        }
-        state.streams.forEach((stream, index) => {
+        const current = new Map([...list.children].map((item) => [item.dataset.key, item]));
+        const items = state.streams.map((stream, index) => {
             const own = stream.hostId === state.userId;
             const watching = own || state.watching.has(stream.id);
             const sharing = isSharing(stream);
-            const item = el('li', 'stream-item' + (watching && !own ? ' watching' : ''));
-            item.style.setProperty('--hue', String(hueOf(stream.id)));
-            item.style.animationDelay = (index * 40) + 'ms';
-            item.append(el('div', 'stream-dot', initial(stream.title)));
-            const info = el('div', 'stream-info');
-            info.append(el('div', 'stream-title', stream.title));
-            info.append(el('div', 'stream-host', own ? 'Sua stream' : stream.hostName));
-            info.append(el('div', 'stream-state' + (sharing ? ' on' : ''), sharing ? 'transmitindo' : 'esperando a tela'));
-            item.append(info);
-            if (!own) {
-                const button = el('button', 'btn btn-sm ' + (watching ? 'btn-ghost' : 'btn-accent'), watching ? '− Tirar' : '+ Assistir');
-                button.type = 'button';
-                button.title = watching ? 'Parar de assistir esta tela' : 'Adicionar esta tela';
-                button.addEventListener('click', () => toggleWatch(stream.id));
-                item.append(button);
+            const view = { title: stream.title, host: own ? 'Sua stream' : stream.hostName, own, watching, sharing };
+            let item = current.get('s' + stream.id);
+            if (!item) {
+                item = keyed(el('li', 'stream-item'), 's' + stream.id);
+                item.style.setProperty('--hue', String(hueOf(stream.id)));
+                item.style.animationDelay = (index * 40) + 'ms';
             }
-            list.append(item);
+            if (changed(item, view)) fillStreamItem(item, stream, view);
+            return item;
         });
+        if (items.length === 0) {
+            items.push(current.get('empty') || keyed(el('li', 'stream-empty', 'Nenhuma stream ao vivo neste canal agora.'), 'empty'));
+        }
+        syncChildren(list, items);
         $('stream-count').textContent = String(state.streams.length);
         updateEmptyText();
         renderPeople();
     }
 
-    /** Quem está na sala: você primeiro, depois quem transmite, depois o resto por nome. */
+    function fillStreamItem(item, stream, view) {
+        item.className = 'stream-item' + (view.watching && !view.own ? ' watching' : '');
+        const info = el('div', 'stream-info');
+        info.append(el('div', 'stream-title', view.title));
+        info.append(el('div', 'stream-host', view.host));
+        info.append(el('div', 'stream-state' + (view.sharing ? ' on' : ''), view.sharing ? 'transmitindo' : 'esperando a tela'));
+        const children = [el('div', 'stream-dot', initial(view.title)), info];
+        if (!view.own) {
+            const button = el('button', 'btn btn-sm ' + (view.watching ? 'btn-ghost' : 'btn-accent'), view.watching ? '− Tirar' : '+ Assistir');
+            button.type = 'button';
+            button.title = view.watching ? 'Parar de assistir esta tela' : 'Adicionar esta tela';
+            button.addEventListener('click', () => toggleWatch(stream.id));
+            children.push(button);
+        }
+        item.replaceChildren(...children);
+    }
+
+    function keyed(node, key) {
+        node.dataset.key = key;
+        return node;
+    }
+
+    /** Guarda no item o que ele mostra; diz se mudou desde a última vez (assim só redesenha o que mudou). */
+    function changed(node, view) {
+        const key = JSON.stringify(view);
+        if (node.dataset.view === key) return false;
+        node.dataset.view = key;
+        return true;
+    }
+
+    /**
+     * Deixa {@code list} com exatamente {@code nodes}, nessa ordem, mexendo só no necessário: tirar e pôr de novo
+     * um elemento no DOM reinicia a animação de entrada dele.
+     */
+    function syncChildren(list, nodes) {
+        const keep = new Set(nodes);
+        [...list.children].forEach((child) => { if (!keep.has(child)) child.remove(); });
+        nodes.forEach((node, index) => {
+            const at = list.children[index];
+            if (at !== node) list.insertBefore(node, at || null);
+        });
+    }
+
+    /** Quem está na sala: você primeiro, depois quem transmite, depois o resto por nome (atualiza no lugar). */
     function renderPeople() {
         const list = $('people');
         if (!state.room) return;
@@ -531,22 +583,33 @@
         const rank = ({ participant, me }) => (me ? 2 : userOf(participant.identity) === state.userId ? 1 : 0);
         everyone.sort((a, b) => (rank(b) - rank(a)) || (sharingOf(b.participant, b.me) - sharingOf(a.participant, a.me))
             || nameOf(a.participant).localeCompare(nameOf(b.participant), 'pt-BR'));
-        list.replaceChildren(...everyone.map(({ participant, me }) => {
-            const name = nameOf(participant);
-            const item = el('li', 'person' + (sharingOf(participant, me) ? ' live' : ''));
-            const avatar = el('span', 'avatar avatar-sm', initial(name));
-            avatar.style.setProperty('--hue', String(hueOf(name)));
-            item.append(avatar, el('span', 'person-name', name + whereOf(participant, me)));
-            if (sharingOf(participant, me)) item.append(el('span', 'person-live', 'ao vivo'));
+        const current = new Map([...list.children].map((item) => [item.dataset.key, item]));
+        syncChildren(list, everyone.map(({ participant, me }) => {
             const quality = me ? null : state.quality.get(participant.identity);
-            if (quality && quality !== ConnectionQuality.Unknown) {
-                const dot = el('span', 'net net-' + quality);
-                dot.title = 'Conexão: ' + ({ excellent: 'ótima', good: 'boa', poor: 'ruim', lost: 'caiu' }[quality] || quality);
-                item.append(dot);
-            }
+            const view = {
+                name: nameOf(participant), where: whereOf(participant, me), live: sharingOf(participant, me),
+                quality: quality && quality !== ConnectionQuality.Unknown ? quality : null,
+            };
+            const key = me ? 'me' : 'p' + participant.identity;
+            const item = current.get(key) || keyed(el('li', 'person'), key);
+            if (changed(item, view)) fillPerson(item, view);
             return item;
         }));
         $('people-count').textContent = String(everyone.length);
+    }
+
+    function fillPerson(item, view) {
+        item.className = 'person' + (view.live ? ' live' : '');
+        const avatar = el('span', 'avatar avatar-sm', initial(view.name));
+        avatar.style.setProperty('--hue', String(hueOf(view.name)));
+        const children = [avatar, el('span', 'person-name', view.name + view.where)];
+        if (view.live) children.push(el('span', 'person-live', 'ao vivo'));
+        if (view.quality) {
+            const dot = el('span', 'net net-' + view.quality);
+            dot.title = 'Conexão: ' + ({ excellent: 'ótima', good: 'boa', poor: 'ruim', lost: 'caiu' }[view.quality] || view.quality);
+            children.push(dot);
+        }
+        item.replaceChildren(...children);
     }
 
     /** Rótulo de quem está na sala duas vezes (Atividade e navegador), para não parecerem duas pessoas. */
@@ -596,12 +659,13 @@
     let refreshSoon;
     function scheduleRefresh() {
         clearTimeout(refreshSoon);
-        refreshSoon = setTimeout(refreshStreams, 600);
+        refreshSoon = setTimeout(refreshStreams, 250);
     }
 
     function startRefresh() {
         stopRefresh();
-        state.refreshTimer = setInterval(refreshStreams, 15000);
+        // Reserva: as mudanças chegam pela sala na hora (ver onData); isto só cobre um aviso perdido
+        state.refreshTimer = setInterval(refreshStreams, 60000);
     }
 
     function stopRefresh() {
@@ -713,6 +777,7 @@
         const tile = state.tiles.get(identity);
         if (!tile) return;
         state.tiles.delete(identity);
+        if (state.expanded === tile.root) expand(null);
         if (document.startViewTransition && !reducedMotion()) {
             transition(() => { tile.root.remove(); updateGrid(); });
         } else {
@@ -726,6 +791,8 @@
         if (tile.audioTrack) tile.audioTrack.setVolume(level);
         tile.mute.textContent = level === 0 ? '🔇' : '🔊';
         tile.mute.title = level === 0 ? 'Ativar som (M)' : 'Silenciar (M)';
+        // Sempre visível (não só ao passar o mouse): esta tela está sem som
+        tile.root.classList.toggle('muted', !!tile.audioTrack && level === 0);
     }
 
     function applyQuality(tile) {
@@ -735,9 +802,41 @@
         if (tile.videoPublication) tile.videoPublication.setVideoQuality(choice.value);
     }
 
+    /**
+     * Tela cheia. Na Atividade o Discord não libera fullscreen no iframe (só quem tem o mod), então a tela ocupa
+     * a Atividade inteira (camada de cima, via popover) e o Discord expande a Atividade se a pessoa quiser.
+     */
     function toggleFullscreen(root) {
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        else root.requestFullscreen().catch(() => {});
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        } else if (state.expanded) {
+            expand(null);
+        } else if (document.fullscreenEnabled) {
+            root.requestFullscreen().catch(() => expand(root));
+        } else {
+            expand(root);
+        }
+    }
+
+    function expand(root) {
+        const previous = state.expanded;
+        state.expanded = root;
+        if (previous) {
+            previous.classList.remove('expanded');
+            if (previous.matches(':popover-open')) previous.hidePopover();
+            previous.removeAttribute('popover');
+        }
+        document.body.classList.toggle('tile-expanded', !!root);
+        if (!root) return;
+        root.classList.add('expanded');
+        if (typeof root.showPopover === 'function') {
+            root.setAttribute('popover', 'manual');
+            root.showPopover();
+        }
+        if (!state.expandHintShown) {
+            state.expandHintShown = true;
+            toast(ACTIVITY ? 'Esc para sair. Para ocupar a tela toda, expanda a Atividade no Discord.' : 'Esc para sair.');
+        }
     }
 
     // ---------- estatísticas: resolução e fps que chegam (ou saem, para quem transmite) ----------
@@ -946,9 +1045,11 @@
 
     // ---------- chat ----------
     function onData(payload, participant) {
-        if (participant) return; // só o bot (servidor) manda mensagens de chat
+        if (participant) return; // só o bot (servidor) manda dados
         const message = parseJson(new TextDecoder().decode(payload));
         if (message && message.type === 'chat') addMessage(message);
+        // Uma stream abriu ou fechou neste canal: atualiza a lista agora
+        else if (message && message.type === 'streams') scheduleRefresh();
     }
 
     function addMessage(message) {
@@ -1073,6 +1174,10 @@
 
     // Atalhos: F = tela cheia da tela sob o mouse (ou a primeira), M = silenciar/ativar todas
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && state.expanded) {
+            expand(null);
+            return;
+        }
         if (event.ctrlKey || event.metaKey || event.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
         const tiles = [...state.tiles.values()];
         if (!tiles.length) return;
@@ -1086,7 +1191,11 @@
             if (remote.length) toast(muteAll ? 'Som desligado (M para ligar)' : 'Som ligado');
         }
     });
-    $('audio-unlock').addEventListener('click', () => state.room && state.room.startAudio().then(updateAudioButton));
+    $('audio-unlock').addEventListener('click', () => state.room && state.room.startAudio().then(() => {
+        updateAudioButton();
+        // O botão só libera o som (o navegador bloqueia até um clique); silenciar é em cada tela ou com M
+        if (state.room.canPlaybackAudio) toast('Som liberado. Para silenciar, use 🔊 na tela ou a tecla M.');
+    }));
     $('chat-form').addEventListener('submit', sendChat);
     $('rejoin').addEventListener('click', () => (state.session ? resume() : (ACTIVITY ? joinWithDiscord() : showJoin())));
     const activityRetry = $('activity-retry');

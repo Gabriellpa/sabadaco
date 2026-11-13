@@ -42,7 +42,7 @@ class StreamChatServiceTest {
         chat.fromWeb(session, "  boa jogada  ");
 
         assertThat(relay.posts).containsExactly("10/30 2 viewer: boa jogada");
-        assertThat(rooms.calls).singleElement().asString()
+        assertThat(chatCalls()).singleElement().asString()
                 .startsWith("broadcast g10-c20 {")
                 .contains("\"type\":\"chat\"", "\"author\":\"viewer\"", "\"content\":\"boa jogada\"", "\"fromWeb\":true",
                         "\"avatarUrl\":\"https://cdn.discordapp.com/avatars/2.png\"");
@@ -82,7 +82,7 @@ class StreamChatServiceTest {
         assertThat(chat.fromDiscord(GUILD, 777, "101", "ana", null, "oi", clock.instant())).isFalse();
         assertThat(chat.mirrors(GUILD, 777)).isFalse();
 
-        assertThat(rooms.calls).singleElement().asString()
+        assertThat(chatCalls()).singleElement().asString()
                 .startsWith("broadcast g10-c20 ")
                 .contains("\"id\":\"99\"", "\"content\":\"gg\"", "\"fromWeb\":false");
     }
@@ -121,5 +121,10 @@ class StreamChatServiceTest {
         public String avatarUrl(long guildId, long userId) {
             return "https://cdn.discordapp.com/avatars/" + userId + ".png";
         }
+    }
+
+    /** Só o chat (abrir uma stream também avisa a sala, com {"type":"streams"}). */
+    private List<String> chatCalls() {
+        return rooms.calls.stream().filter(call -> call.contains("\"type\":\"chat\"")).toList();
     }
 }
