@@ -27,7 +27,8 @@ Quando o Discord se atualizar, a instalação some. É só rodar o arquivo de no
 powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1 -Remover
 ```
 
-Para o Discord PTB ou Canary, passe a pasta: `-Pasta "$env:LOCALAPPDATA\DiscordPTB"`.
+O script acha o Discord sozinho: primeiro pelo Discord aberto, depois nas pastas padrão (Discord, PTB, Canary). Se
+mesmo assim não achar, passe a pasta que tem as `app-*`: `-Pasta "D:\Apps\Discord"`.
 
 ## O que ele faz
 
