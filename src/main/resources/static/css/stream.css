@@ -272,6 +272,14 @@ code { font-family: "Geist Mono", ui-monospace, monospace; background: var(--sur
 .tile.leaving { animation: out 0.3s var(--ease) both; }
 @keyframes out { to { opacity: 0; transform: scale(0.94); filter: blur(4px); } }
 .tile video { width: 100%; height: 100%; object-fit: contain; display: block; background: radial-gradient(circle, #111, #000); }
+/* Tela cheia dentro da página (Atividade sem permissão de fullscreen): a tela ocupa tudo, na camada de cima */
+.tile.expanded, .tile.expanded:hover {
+    position: fixed; inset: 0; z-index: 1000; width: 100vw; height: 100vh; max-width: none; max-height: none;
+    margin: 0; padding: 0; border: 0; border-radius: 0; transform: none; animation: none; box-shadow: none;
+    background: #000; overflow: hidden; aspect-ratio: auto;
+}
+.tile.expanded::backdrop { background: #000; }
+body.tile-expanded { overflow: hidden; }
 .tile-bar {
     position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 28px 14px 12px;
     background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.82)); opacity: 0; transform: translateY(6px);
@@ -288,6 +296,7 @@ code { font-family: "Geist Mono", ui-monospace, monospace; background: var(--sur
 }
 .tile-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: live 1.6s infinite; }
 .tile.local .tile-badge::before { background: var(--accent); }
+.tile.muted .tile-badge::after { content: "· 🔇 sem som"; }
 .icon-btn {
     appearance: none; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.1); color: #fff; width: 34px; height: 34px;
     border-radius: 11px; display: grid; place-items: center; cursor: pointer; font-size: 15px; backdrop-filter: blur(8px);
@@ -369,6 +378,7 @@ code { font-family: "Geist Mono", ui-monospace, monospace; background: var(--sur
     animation: toast-in 0.4s var(--spring) both;
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 16px) scale(0.96); } }
+.toast:popover-open { inset: auto auto 24px 50%; margin: 0; border: 0; overflow: visible; }
 
 /* ---------- transmitir: perfil e áudio ---------- */
 .share-group { display: flex; align-items: center; gap: 8px; }

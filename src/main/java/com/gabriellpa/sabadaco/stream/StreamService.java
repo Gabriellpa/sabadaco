@@ -9,6 +9,7 @@ import de.mkammerer.snowflakeid.time.MonotonicTimeSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
@@ -34,6 +35,8 @@ public class StreamService {
     static final long NO_STREAM = 0;
     /** Sufixo da identidade de quem está na Atividade (ver {@link #identityOf}). */
     static final String ACTIVITY_IDENTITY = "#atividade";
+    /** Aviso na sala de que a lista de streams do canal mudou: a página busca a lista na hora, sem esperar o refresh. */
+    static final byte[] STREAMS_CHANGED = "{\"type\":\"streams\"}".getBytes(StandardCharsets.UTF_8);
 
     private final LongSupplier ids;
     private final JoinCodeIssuer codes;
@@ -120,6 +123,7 @@ public class StreamService {
         var stream = new StreamSession(ids.getAsLong(), cleanTitle, guildId, voiceChannelId, textChannelId,
                 hostUserId, hostName, clock.instant());
         live.put(stream.id(), stream);
+        rooms.broadcast(stream.room(), STREAMS_CHANGED);
         return invite(stream, hostUserId, hostName);
     }
 
@@ -269,6 +273,7 @@ public class StreamService {
         }
         live.remove(streamId);
         identitiesOf(stream.hostUserId()).forEach(identity -> rooms.revokePublish(stream.room(), identity));
+        rooms.broadcast(stream.room(), STREAMS_CHANGED);
         return stream;
     }
 
@@ -292,7 +297,11 @@ public class StreamService {
                 .toList();
         ended.forEach(stream -> live.remove(stream.id()));
         if (media.isConfigured()) {
-            identitiesOf(userId).forEach(identity -> rooms.remove(StreamSession.roomOf(guildId, leftVoiceChannelId), identity));
+            var room = StreamSession.roomOf(guildId, leftVoiceChannelId);
+            identitiesOf(userId).forEach(identity -> rooms.remove(room, identity));
+            if (!ended.isEmpty()) {
+                rooms.broadcast(room, STREAMS_CHANGED);
+            }
         }
         return ended;
     }
