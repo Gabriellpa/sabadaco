@@ -15,7 +15,8 @@ Sem ele, o botão **📡 Transmitir** da Atividade abre o navegador para transmi
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\sabadaco-tela.ps1
    ```
-   O script fecha o Discord, instala e abre o Discord de novo.
+   O script mostra a pasta e as versões do Discord que encontrou e pergunta antes de mexer (`S` para seguir).
+   Depois fecha o Discord, instala e abre o Discord de novo. Com `-Sim`, não pergunta.
 3. Abra a Atividade do Sabadaço, clique em **📡 Transmitir**, dê um título e depois clique em
    **Compartilhar tela**. Uma janela pergunta qual tela ou janela transmitir.
 

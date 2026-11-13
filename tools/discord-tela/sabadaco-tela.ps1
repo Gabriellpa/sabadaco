@@ -19,6 +19,8 @@
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [switch]$Remover,
+    # Não pergunta antes de instalar/remover
+    [switch]$Sim,
     # Pasta do Discord (a que tem as app-*). Vazio = acha sozinho: o Discord aberto, ou a pasta padrão.
     [string]$Pasta = ''
 )
@@ -232,6 +234,17 @@ if (-not $Pasta) { $Pasta = Find-PastaDiscord }
 $NomeExe = Get-NomeExe
 Write-Host "Discord em $Pasta ($NomeExe)"
 $dirs = Get-PastasCore
+
+Write-Host ''
+Write-Host "Discord encontrado em: $Pasta"
+Write-Host 'Versões:'
+$dirs | ForEach-Object { Write-Host ('  ' + ($_ -replace '^.*\\(app-[^\\]+)\\.*$', '$1')) }
+Write-Host 'O Discord será fechado e aberto de novo.'
+if (-not $Sim) {
+    $acao = if ($Remover) { 'Remover o sabadaco-tela' } else { 'Instalar o sabadaco-tela (vai contra os termos do Discord; o risco é seu)' }
+    $resposta = Read-Host "$acao? (S/N)"
+    if ($resposta -notmatch '^[sSyY]') { Write-Host 'Nada foi alterado.'; exit 1 }
+}
 
 Stop-Discord
 foreach ($dir in $dirs) {
