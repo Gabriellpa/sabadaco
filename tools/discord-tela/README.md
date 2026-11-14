@@ -45,7 +45,10 @@ Atividade do Sabadaço** (`888603239304527884.discordsays.com`). Nenhum outro si
    `display-capture` e `fullscreen` só quando o pedido vem da nossa Atividade. O resto continua decidido pelo Discord.
 3. **Seletor de tela:** o Electron não tem o seletor do Chrome, então o arquivo abre uma janela própria, no visual
    do Sabadaço, com abas Telas e Janelas e miniaturas que se atualizam enquanto ela está aberta. Se a página pediu
-   áudio, a opção **Incluir o som do computador** manda o áudio do sistema (só no Windows).
+   áudio, a opção **Incluir o som do computador** manda o áudio do sistema (só no Windows). Com o Discord em
+   Electron 43 ou mais novo, esse som vem **sem o som do próprio Discord**: as vozes da call não vão para a live
+   (senão quem está na call se escuta com atraso). Em versões antigas vai tudo, e o seletor avisa
+   "(inclui a call do Discord)".
 
 O cursor do mouse aparece na transmissão quando ele está sobre a tela ou janela escolhida. É o mesmo comportamento
 do Chrome e do Discord: o Electron não tem opção para esconder.
@@ -60,7 +63,8 @@ recusar (por exemplo, depois de uma atualização do Discord), ela volta a abrir
 
 O log fica em `%APPDATA%\discord\sabadaco-tela.log`:
 
-- `sabadaco-tela ativo`: o arquivo carregou.
+- `sabadaco-tela ativo (Electron 44..., som sem a call)`: o arquivo carregou, e a versão do Discord tira a call
+  do som da live.
 - `seletor: window "Nome"` (ou `screen`): o que foi escolhido para transmitir.
 - `handler de permissão do Discord embrulhado`: o passo 2 pegou. Se essa linha não aparecer e a Atividade der
   `NotAllowedError`, o Discord registrou as permissões antes do arquivo carregar: avise no projeto.
