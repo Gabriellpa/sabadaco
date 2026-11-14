@@ -182,6 +182,7 @@ footer { display: flex; align-items: center; gap: 10px; padding: 14px 20px; bord
 .audio input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: .2s; }
 .audio input:checked { background: var(--accent); } .audio input:checked::after { left: 17px; }
 .audio:has(input:checked) { color: var(--text); }
+.audio small { color: var(--muted); font-size: 12px; }
 .spacer { flex: 1; }
 button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 18px; cursor: pointer; border: 1px solid var(--line); transition: .2s; }
 .ghost { background: transparent; color: var(--text); } .ghost:hover { background: rgba(255,255,255,.06); }
@@ -195,7 +196,7 @@ button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 
 <button class="btn ghost icon close" id="fechar" title="Cancelar (Esc)">✕</button></header>
 <nav role="tablist"><button class="tab" id="tab-screen" role="tab">Telas<span></span></button><button class="tab" id="tab-window" role="tab">Janelas<span></span></button></nav>
 <main><div class="grid" id="grade" role="radiogroup"></div><div class="empty" id="vazio" hidden>Nada para mostrar aqui.</div></main>
-<footer><label class="audio" id="audio-box" hidden><input type="checkbox" id="audio" checked> Incluir o som do computador</label>
+<footer><label class="audio" id="audio-box" hidden><input type="checkbox" id="audio" checked> <span>Incluir o som do computador <small id="audio-nota"></small></span></label>
 <div class="spacer"></div><button class="btn ghost" id="cancelar">Cancelar</button><button class="btn primary" id="ok" disabled>Transmitir</button></footer>
 <script>
 (() => {
@@ -247,6 +248,7 @@ button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 
     const primeira = fontes.length === 0;
     fontes = dados.sources;
     $('audio-box').hidden = !dados.audio;
+    $('audio-nota').textContent = dados.semCall ? '(sem a call do Discord)' : '(inclui a call do Discord)';
     if (primeira && !fontes.some((f) => f.kind === 'window')) aba = 'screen';
     if (escolhida && !fontes.some((f) => f.id === escolhida)) escolhida = null;
     desenhar();
@@ -263,6 +265,9 @@ button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 
 </script></body></html>`;
 
     const MINIATURA = { width: 384, height: 216 };
+    // Electron 43+: com restrictOwnAudio na página (stream.js pede), o "loopback" vira o som do PC sem o processo do
+    // Discord, então as vozes da call não vão para a live. Antes disso o loopback pega tudo, inclusive a call.
+    const SOM_SEM_O_DISCORD = Number(String(process.versions.electron || '0').split('.')[0]) >= 43;
     const fontesComPrevia = async () => {
         const fontes = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: MINIATURA, fetchWindowIcons: true });
         const telas = fontes.filter((f) => f.id.startsWith('screen:'));
@@ -302,7 +307,8 @@ button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 
             wc.setWindowOpenHandler(() => ({ action: 'deny' }));
             wc.on('will-navigate', (e) => e.preventDefault());
             await janela.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(SELETOR_HTML));
-            const render = () => wc.executeJavaScript('window.__render(' + JSON.stringify({ audio, sources: atuais.map((f) => f.dados) }) + ')');
+            const render = () => wc.executeJavaScript('window.__render(' + JSON.stringify({ audio, semCall: SOM_SEM_O_DISCORD,
+                sources: atuais.map((f) => f.dados) }) + ')');
             await render();
             janela.show();
             // Prévia ao vivo: novas miniaturas (e janelas abertas/fechadas) enquanto o seletor está aberto
@@ -343,7 +349,8 @@ button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 9px 
             });
             app.on('web-contents-created', (_, wc) => prepararPagina(wc));
             webContents.getAllWebContents().forEach(prepararPagina);
-            log('sabadaco-tela ativo');
+            log('sabadaco-tela ativo (Electron ' + process.versions.electron + ', Chrome ' + process.versions.chrome
+                + (SOM_SEM_O_DISCORD ? ', som sem a call' : ', som inclui a call') + ')');
         } catch (e) {
             log('falhou ao iniciar:', e.stack || e.message);
         }

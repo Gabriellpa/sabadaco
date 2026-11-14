@@ -85,7 +85,10 @@
 
     function captureOptions(profile, withAudio) {
         return {
-            audio: withAudio,
+            // restrictOwnAudio: o som do PC sem o do próprio app. No navegador tira o som desta página (as outras
+            // streams); no app do Discord com o mod (Electron 43+) tira o som do Discord inteiro, ou seja, as vozes
+            // da call, que senão voltam para quem está na call pela live. Quem não conhece a opção ignora.
+            audio: withAudio ? { restrictOwnAudio: true } : false,
             systemAudio: withAudio ? 'include' : 'exclude',
             resolution: profile.resolution,
             contentHint: profile.contentHint,
