@@ -52,11 +52,22 @@
 
     /**
      * Perfis de transmissão. Todos com simulcast: o LiveKit manda para cada pessoa a camada que a rede dela aguenta.
+     * O codec é H.264: no Windows o Chromium/Electron codifica na placa de vídeo (NVENC, AMF, QuickSync), e o jogo
+     * de quem transmite perde menos fps que com VP8, que é sempre na CPU. O selo da sua tela diz qual pegou.
+     *  - pc: 720p60 com uma camada só de reserva, o que menos pesa no PC (perde nitidez);
      *  - jogo: 1080p60, segura o fps quando a rede aperta;
      *  - nitidez: 1080p30, segura a resolução (texto, código, planilha);
      *  - leve: 720p30, para internet de upload fraca.
      */
     const PROFILES = {
+        pc: {
+            label: 'Leve no PC · 720p60',
+            resolution: { width: 1280, height: 720, frameRate: 60 },
+            contentHint: 'motion',
+            encoding: { maxBitrate: 3_500_000, maxFramerate: 60 },
+            layers: [new VideoPreset(640, 360, 600_000, 30)],
+            degradation: 'maintain-framerate',
+        },
         game: {
             label: 'Jogo · 1080p60',
             resolution: { width: 1920, height: 1080, frameRate: 60 },
@@ -99,7 +110,7 @@
 
     function publishOptions(profile) {
         return {
-            videoCodec: 'vp8',
+            videoCodec: 'h264',
             simulcast: true,
             screenShareEncoding: profile.encoding,
             screenShareSimulcastLayers: profile.layers,
@@ -859,7 +870,12 @@
             if (tile.local) {
                 const settings = tile.videoTrack.mediaStreamTrack ? tile.videoTrack.mediaStreamTrack.getSettings() : {};
                 const audio = state.room && state.room.localParticipant.getTrackPublication(SCREEN_AUDIO);
-                tile.stats.textContent = 'enviando ' + describe(settings.height, settings.frameRate) + (audio ? '' : ' · sem áudio');
+                const encoder = await encoderOf(tile.videoTrack);
+                tile.stats.textContent = 'enviando ' + describe(settings.height, settings.frameRate) + (audio ? '' : ' · sem áudio')
+                    + (encoder ? ' · ' + encoder : '');
+                tile.stats.title = encoder === 'CPU'
+                    ? 'O vídeo está sendo codificado na CPU, que o jogo também usa. Tente o perfil "Leve no PC" ou ative a aceleração de hardware.'
+                    : encoder === 'GPU' ? 'O vídeo está sendo codificado na placa de vídeo: pesa pouco no jogo.' : '';
                 continue;
             }
             let stats;
@@ -875,6 +891,23 @@
             const hasAudio = tile.participant && tile.participant.getTrackPublication(SCREEN_AUDIO);
             tile.stats.textContent = describe(stats.frameHeight, fps) + ' · ' + mbps.toFixed(1) + ' Mbps' + (hasAudio ? '' : ' · sem áudio');
         }
+    }
+
+    /** Onde o vídeo que você manda está sendo codificado: "GPU" (placa de vídeo), "CPU" ou vazio se não dá para saber. */
+    async function encoderOf(track) {
+        if (!track || !track.sender) return '';
+        let report;
+        try { report = await track.sender.getStats(); } catch { return ''; }
+        let hardware = null;
+        report.forEach((entry) => {
+            if (entry.type !== 'outbound-rtp' || entry.kind !== 'video') return;
+            if (entry.powerEfficientEncoder === true) hardware = true;
+            else if (hardware === null && entry.encoderImplementation) {
+                if (/MediaFoundation|EncodeAccelerator|NVENC|AMF|QuickSync|VideoToolbox|Vaapi|D3D/i.test(entry.encoderImplementation)) hardware = true;
+                else if (/libvpx|OpenH264|libaom|software/i.test(entry.encoderImplementation)) hardware = false;
+            }
+        });
+        return hardware === null ? '' : hardware ? 'GPU' : 'CPU';
     }
 
     function describe(height, fps) {
